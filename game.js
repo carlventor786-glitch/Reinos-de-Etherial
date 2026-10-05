@@ -1,49 +1,74 @@
-/* ==========================================================
-   REINOS DE ETHERIAL V2
-   MOTOR PRINCIPAL DEL JUEGO
-========================================================== */
-
-(() => {
+/* =========================================================
+   REINOS DE ETHERIAL V3
+   GAME.JS
+========================================================= */
 
 "use strict";
 
-/* ==========================================================
+/* =========================================================
    CANVAS
-========================================================== */
+========================================================= */
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 ctx.imageSmoothingEnabled = false;
 
-const GAME_WIDTH = canvas.width;
-const GAME_HEIGHT = canvas.height;
+const VIEW_WIDTH = canvas.width;
+const VIEW_HEIGHT = canvas.height;
 
-const SAVE_KEY = "reinos_etherial_v2_save";
+const SAVE_KEY = "reinos_etherial_v3_save";
 
 
-/* ==========================================================
-   ESTADO DEL TECLADO
-========================================================== */
+/* =========================================================
+   UTILIDADES
+========================================================= */
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function randomInt(min, max) {
+    return Math.floor(
+        Math.random() * (max - min + 1)
+    ) + min;
+}
+
+
+/* =========================================================
+   ESTADO
+========================================================= */
 
 const keys = {};
 
 let lastTime = performance.now();
+
 let attackCooldown = 0;
 let autoSaveTimer = 0;
 
+let currentTarget = null;
 
-/* ==========================================================
+
+/* =========================================================
    JUGADOR
-========================================================== */
+========================================================= */
 
 const player = {
 
-    x: 300,
-    y: 280,
+    x: WORLD_DATA.startX,
+    y: WORLD_DATA.startY,
 
-    width: 22,
-    height: 28,
+    width: 24,
+    height: 30,
+
+    level: 1,
+
+    xp: 0,
+    nextXp: LEVEL_CONFIG.startingXp,
 
     hp: 100,
     maxHp: 100,
@@ -51,183 +76,88 @@ const player = {
     mana: 50,
     maxMana: 50,
 
-    level: 1,
-
-    xp: 0,
-    nextXp: 100,
+    baseAttack: 12,
+    baseDefense: 3,
 
     gold: 50,
 
-    damage: 18,
-
     speed: 190,
 
-    kills: 0
+    kills: 0,
+
+    zone: WORLD_DATA.startingZone
 };
 
 
-/* ==========================================================
+/* =========================================================
    INVENTARIO
-========================================================== */
+========================================================= */
 
-const inventory = {
-
-    potion: 3,
-
-    wood: 0,
-
-    iron: 0,
-
-    crystal: 0,
-
-    wolfFang: 0
+let inventory = {
+    ...STARTING_INVENTORY
 };
 
 
-/* ==========================================================
-   MISIÓN PRINCIPAL
-========================================================== */
+/* =========================================================
+   EQUIPAMIENTO
+========================================================= */
 
-const quest = {
+let equipment = {
+    ...STARTING_EQUIPMENT
+};
 
-    name: "Primeros pasos",
 
-    target: 5,
+/* =========================================================
+   MISIÓN
+========================================================= */
+
+let questState = {
+
+    current: "introduction",
 
     progress: 0,
-
-    rewardGold: 100,
-
-    rewardXp: 80,
 
     completed: false
 };
 
 
-/* ==========================================================
-   CREAR ENEMIGOS
-========================================================== */
+/* =========================================================
+   CÁMARA
+========================================================= */
 
-function createEnemy(
-    x,
-    y,
-    name,
-    hp,
-    damage,
-    xp,
-    gold
-) {
+const camera = {
 
-    return {
+    x: 0,
+    y: 0
 
-        x,
-        y,
-
-        name,
-
-        hp,
-        maxHp: hp,
-
-        damage,
-
-        xp,
-
-        gold,
-
-        alive: true,
-
-        respawnTimer: 0,
-
-        attackTimer: 0
-    };
-}
+};
 
 
-/* ==========================================================
-   ENEMIGOS DEL MAPA
-========================================================== */
-
-const enemies = [
-
-    createEnemy(
-        600,
-        180,
-        "Slime Verde",
-        45,
-        5,
-        30,
-        8
-    ),
-
-    createEnemy(
-        720,
-        350,
-        "Lobo Sombrío",
-        60,
-        8,
-        45,
-        12
-    ),
-
-    createEnemy(
-        520,
-        410,
-        "Goblin",
-        35,
-        7,
-        35,
-        10
-    ),
-
-    createEnemy(
-        820,
-        300,
-        "Goblin",
-        35,
-        7,
-        35,
-        10
-    ),
-
-    createEnemy(
-        650,
-        450,
-        "Slime Verde",
-        45,
-        5,
-        30,
-        8
-    )
-];
-
-
-/* ==========================================================
-   REGISTRO DE EVENTOS
-========================================================== */
+/* =========================================================
+   LOG
+========================================================= */
 
 const gameLogs = [];
 
 
-function addLog(message) {
+function addLog(text) {
 
-    gameLogs.unshift(message);
+    gameLogs.unshift(text);
 
-    if (gameLogs.length > 8) {
-
+    if (gameLogs.length > 9) {
         gameLogs.pop();
-
     }
 
-    renderGameLog();
+    renderLog();
 }
 
 
-function renderGameLog() {
+function renderLog() {
 
-    const gameLog =
+    const container =
         document.getElementById("gameLog");
 
-    gameLog.innerHTML = "";
+    container.innerHTML = "";
 
     gameLogs.forEach(message => {
 
@@ -236,38 +166,2581 @@ function renderGameLog() {
 
         p.textContent = message;
 
-        gameLog.appendChild(p);
+        container.appendChild(p);
 
     });
+
 }
 
 
-/* ==========================================================
-   GUARDAR PARTIDA
-========================================================== */
+/* =========================================================
+   ENEMIGOS
+========================================================= */
 
-function saveGame(showMessage = true) {
+const enemies = ENEMY_SPAWNS.map(
+    (spawn, index) => {
+
+        const type =
+            ENEMY_TYPES[spawn.type];
+
+        return {
+
+            id: "enemy_" + index,
+
+            type: spawn.type,
+
+            x: spawn.x,
+            y: spawn.y,
+
+            spawnX: spawn.x,
+            spawnY: spawn.y,
+
+            hp: type.maxHp,
+
+            alive: true,
+
+            respawnTimer: 0,
+
+            attackTimer: 0
+
+        };
+
+    }
+);
+
+
+/* =========================================================
+   STATS DEL JUGADOR
+========================================================= */
+
+function getAttack() {
+
+    let value =
+        player.baseAttack;
+
+    Object.values(equipment)
+        .forEach(itemId => {
+
+            if (!itemId) return;
+
+            const item =
+                ITEMS[itemId];
+
+            if (item && item.attack) {
+                value += item.attack;
+            }
+
+        });
+
+    return value;
+}
+
+
+function getDefense() {
+
+    let value =
+        player.baseDefense;
+
+    Object.values(equipment)
+        .forEach(itemId => {
+
+            if (!itemId) return;
+
+            const item =
+                ITEMS[itemId];
+
+            if (item && item.defense) {
+                value += item.defense;
+            }
+
+        });
+
+    return value;
+}
+
+
+function getSpeed() {
+
+    let value =
+        player.speed;
+
+    const boots =
+        equipment.boots
+        ? ITEMS[equipment.boots]
+        : null;
+
+    if (boots && boots.speed) {
+        value += boots.speed;
+    }
+
+    return value;
+}
+
+
+/* =========================================================
+   INVENTARIO
+========================================================= */
+
+function addItem(itemId, amount = 1) {
+
+    if (!ITEMS[itemId]) {
+        return;
+    }
+
+    if (!inventory[itemId]) {
+        inventory[itemId] = 0;
+    }
+
+    inventory[itemId] += amount;
+
+    addLog(
+        "🎒 +" +
+        amount +
+        " " +
+        ITEMS[itemId].name
+    );
+
+    renderInventory();
+}
+
+
+function removeItem(itemId, amount = 1) {
+
+    if (!inventory[itemId]) {
+        return false;
+    }
+
+    if (inventory[itemId] < amount) {
+        return false;
+    }
+
+    inventory[itemId] -= amount;
+
+    if (inventory[itemId] <= 0) {
+        delete inventory[itemId];
+    }
+
+    renderInventory();
+
+    return true;
+}
+
+
+/* =========================================================
+   USAR / EQUIPAR OBJETO
+========================================================= */
+
+function useInventoryItem(itemId) {
+
+    const item =
+        ITEMS[itemId];
+
+    if (!item) return;
+
+
+    if (item.type === "consumable") {
+
+        if (item.heal) {
+
+            if (player.hp >= player.maxHp) {
+
+                addLog(
+                    "❤️ Ya tienes la vida completa."
+                );
+
+                return;
+            }
+
+            const amount =
+                Math.min(
+                    item.heal,
+                    player.maxHp - player.hp
+                );
+
+            player.hp += amount;
+
+            removeItem(itemId, 1);
+
+            addLog(
+                "🧪 Recuperas " +
+                amount +
+                " HP."
+            );
+
+        }
+
+
+        else if (item.mana) {
+
+            if (player.mana >= player.maxMana) {
+
+                addLog(
+                    "🔷 Ya tienes el mana completo."
+                );
+
+                return;
+            }
+
+            const amount =
+                Math.min(
+                    item.mana,
+                    player.maxMana - player.mana
+                );
+
+            player.mana += amount;
+
+            removeItem(itemId, 1);
+
+            addLog(
+                "🔷 Recuperas " +
+                amount +
+                " de mana."
+            );
+
+        }
+
+        saveGame(false);
+        updateUI();
+
+        return;
+    }
+
+
+    const validEquipment = [
+        "weapon",
+        "armor",
+        "helmet",
+        "boots"
+    ];
+
+
+    if (
+        validEquipment.includes(
+            item.type
+        )
+    ) {
+
+        equipItem(itemId);
+    }
+
+}
+
+
+/* =========================================================
+   EQUIPAR
+========================================================= */
+
+function equipItem(itemId) {
+
+    const item =
+        ITEMS[itemId];
+
+    if (!item) return;
+
+    const slot =
+        item.type;
+
+    if (!inventory[itemId]) {
+        return;
+    }
+
+
+    const previousItem =
+        equipment[slot];
+
+
+    removeItem(itemId, 1);
+
+
+    if (previousItem) {
+
+        if (!inventory[previousItem]) {
+            inventory[previousItem] = 0;
+        }
+
+        inventory[previousItem]++;
+    }
+
+
+    equipment[slot] =
+        itemId;
+
+
+    addLog(
+        "⚔ Equipaste " +
+        item.name +
+        "."
+    );
+
+
+    renderInventory();
+    renderEquipment();
+
+    saveGame(false);
+}
+
+
+/* =========================================================
+   POCIÓN RÁPIDA
+========================================================= */
+
+function usePotion() {
+
+    if (
+        inventory.potion &&
+        inventory.potion > 0
+    ) {
+
+        useInventoryItem(
+            "potion"
+        );
+
+        return;
+    }
+
+
+    if (
+        inventory.greaterPotion &&
+        inventory.greaterPotion > 0
+    ) {
+
+        useInventoryItem(
+            "greaterPotion"
+        );
+
+        return;
+    }
+
+
+    addLog(
+        "🧪 No tienes pociones."
+    );
+}
+
+
+/* =========================================================
+   COMBATE
+========================================================= */
+
+function attack() {
+
+    if (attackCooldown > 0) {
+        return;
+    }
+
+    attackCooldown = 0.45;
+
+
+    let target = null;
+    let bestDistance = Infinity;
+
+
+    enemies.forEach(enemy => {
+
+        if (!enemy.alive) return;
+
+        const d =
+            distance(player, enemy);
+
+        if (
+            d <= 78 &&
+            d < bestDistance
+        ) {
+
+            bestDistance = d;
+            target = enemy;
+
+        }
+
+    });
+
+
+    currentTarget = target;
+
+
+    if (!target) {
+
+        addLog(
+            "⚔ No hay enemigos al alcance."
+        );
+
+        return;
+    }
+
+
+    const enemyType =
+        ENEMY_TYPES[target.type];
+
+
+    const rawDamage =
+        getAttack() +
+        randomInt(-3, 5);
+
+
+    const damage =
+        Math.max(
+            1,
+            rawDamage -
+            enemyType.defense
+        );
+
+
+    target.hp -= damage;
+
+
+    addLog(
+        "⚔ Golpeas a " +
+        enemyType.name +
+        " por " +
+        damage +
+        "."
+    );
+
+
+    if (target.hp <= 0) {
+
+        killEnemy(target);
+
+    }
+
+
+    updateUI();
+}
+
+
+/* =========================================================
+   MATAR ENEMIGO
+========================================================= */
+
+function killEnemy(enemy) {
+
+    const type =
+        ENEMY_TYPES[enemy.type];
+
+
+    enemy.alive = false;
+
+    enemy.hp = 0;
+
+    enemy.respawnTimer =
+        randomInt(7, 12);
+
+
+    const gold =
+        randomInt(
+            type.goldMin,
+            type.goldMax
+        );
+
+
+    player.gold += gold;
+
+    player.xp += type.xp;
+
+    player.kills++;
+
+
+    addLog(
+        "☠ " +
+        type.name +
+        " derrotado. +" +
+        type.xp +
+        " EXP · +" +
+        gold +
+        " oro."
+    );
+
+
+    processLoot(type);
+
+    processQuestKill(
+        enemy.type
+    );
+
+    checkLevelUp();
+
+    currentTarget = null;
+
+    saveGame(false);
+}
+
+
+/* =========================================================
+   LOOT
+========================================================= */
+
+function processLoot(enemyType) {
+
+    if (!enemyType.loot) {
+        return;
+    }
+
+
+    enemyType.loot.forEach(drop => {
+
+        if (
+            Math.random() <=
+            drop.chance
+        ) {
+
+            const amount =
+                randomInt(
+                    drop.min,
+                    drop.max
+                );
+
+            addItem(
+                drop.item,
+                amount
+            );
+
+        }
+
+    });
+
+}
+
+
+/* =========================================================
+   NIVEL
+========================================================= */
+
+function checkLevelUp() {
+
+    while (
+        player.xp >=
+        player.nextXp
+    ) {
+
+        player.xp -=
+            player.nextXp;
+
+
+        player.level++;
+
+
+        player.nextXp =
+            Math.floor(
+                player.nextXp *
+                LEVEL_CONFIG.xpMultiplier
+            );
+
+
+        player.maxHp +=
+            LEVEL_CONFIG.hpPerLevel;
+
+
+        player.maxMana +=
+            LEVEL_CONFIG.manaPerLevel;
+
+
+        player.baseAttack +=
+            LEVEL_CONFIG.attackPerLevel;
+
+
+        player.baseDefense +=
+            LEVEL_CONFIG.defensePerLevel;
+
+
+        player.hp =
+            player.maxHp;
+
+
+        player.mana =
+            player.maxMana;
+
+
+        showLevelUp();
+
+
+        addLog(
+            "✨ Alcanzaste nivel " +
+            player.level +
+            "!"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   MENSAJE LEVEL UP
+========================================================= */
+
+function showLevelUp() {
+
+    const message =
+        document.getElementById(
+            "levelUpMessage"
+        );
+
+
+    message.classList.remove(
+        "hidden"
+    );
+
+
+    setTimeout(() => {
+
+        message.classList.add(
+            "hidden"
+        );
+
+    }, 1800);
+
+}
+
+
+/* =========================================================
+   MISIONES
+========================================================= */
+
+function getCurrentQuest() {
+
+    return QUESTS[
+        questState.current
+    ];
+
+}
+
+
+function processQuestKill(
+    enemyType
+) {
+
+    const quest =
+        getCurrentQuest();
+
+
+    if (!quest) return;
+
+    if (
+        quest.type !== "kill"
+    ) {
+        return;
+    }
+
+
+    if (
+        quest.target !==
+        enemyType
+    ) {
+        return;
+    }
+
+
+    questState.progress++;
+
+
+    if (
+        questState.progress >=
+        quest.amount
+    ) {
+
+        completeQuest();
+
+    }
+
+}
+
+
+function processQuestTalk(
+    npcId
+) {
+
+    const quest =
+        getCurrentQuest();
+
+
+    if (!quest) return;
+
+
+    if (
+        quest.type === "talk" &&
+        quest.target === npcId
+    ) {
+
+        questState.progress = 1;
+
+        completeQuest();
+
+    }
+
+}
+
+
+/* =========================================================
+   COMPLETAR MISIÓN
+========================================================= */
+
+function completeQuest() {
+
+    const quest =
+        getCurrentQuest();
+
+
+    if (!quest) return;
+
+
+    player.gold +=
+        quest.reward.gold || 0;
+
+
+    player.xp +=
+        quest.reward.xp || 0;
+
+
+    if (quest.reward.items) {
+
+        Object.entries(
+            quest.reward.items
+        )
+        .forEach(
+            ([itemId, amount]) => {
+
+                addItem(
+                    itemId,
+                    amount
+                );
+
+            }
+        );
+
+    }
+
+
+    addLog(
+        "🏆 Misión completada: " +
+        quest.name
+    );
+
+
+    checkLevelUp();
+
+
+    if (quest.next) {
+
+        questState.current =
+            quest.next;
+
+        questState.progress =
+            0;
+
+        questState.completed =
+            false;
+
+
+        addLog(
+            "📜 Nueva misión: " +
+            QUESTS[quest.next].name
+        );
+
+    }
+
+    else {
+
+        questState.completed =
+            true;
+
+        addLog(
+            "👑 ¡Has completado todas las misiones de V3!"
+        );
+
+    }
+
+
+    saveGame(false);
+
+    renderQuest();
+
+}
+
+
+/* =========================================================
+   NPC
+========================================================= */
+
+function getNearestNPC() {
+
+    let nearest = null;
+
+    let nearestDistance =
+        Infinity;
+
+
+    Object.values(NPCS)
+        .forEach(npc => {
+
+            const d =
+                distance(
+                    player,
+                    npc
+                );
+
+
+            if (
+                d < 90 &&
+                d < nearestDistance
+            ) {
+
+                nearest = npc;
+
+                nearestDistance = d;
+
+            }
+
+        });
+
+
+    return nearest;
+}
+
+
+/* =========================================================
+   INTERACTUAR
+========================================================= */
+
+function interact() {
+
+    const npc =
+        getNearestNPC();
+
+
+    if (!npc) {
+
+        addLog(
+            "💬 No hay nadie cerca."
+        );
+
+        return;
+    }
+
+
+    openDialog(npc);
+
+    processQuestTalk(
+        npc.id
+    );
+
+}
+
+
+/* =========================================================
+   DIÁLOGO
+========================================================= */
+
+function openDialog(npc) {
+
+    document
+        .getElementById(
+            "dialogName"
+        )
+        .textContent =
+        npc.icon +
+        " " +
+        npc.name +
+        " — " +
+        npc.role;
+
+
+    document
+        .getElementById(
+            "dialogText"
+        )
+        .textContent =
+        npc.dialog;
+
+
+    const actions =
+        document.getElementById(
+            "dialogActions"
+        );
+
+
+    actions.innerHTML = "";
+
+
+    if (
+        npc.id === "mira" ||
+        npc.id === "borin"
+    ) {
+
+        const shopButton =
+            document.createElement(
+                "button"
+            );
+
+
+        shopButton.textContent =
+            "🏪 Ver tienda";
+
+
+        shopButton.onclick = () => {
+
+            closeDialog();
+
+            openShop();
+
+        };
+
+
+        actions.appendChild(
+            shopButton
+        );
+
+    }
+
+
+    if (npc.id === "elena") {
+
+        const healButton =
+            document.createElement(
+                "button"
+            );
+
+
+        healButton.textContent =
+            "❤️ Curarme";
+
+
+        healButton.onclick = () => {
+
+            player.hp =
+                player.maxHp;
+
+            player.mana =
+                player.maxMana;
+
+
+            addLog(
+                "❤️ Elena restaura tu vida y mana."
+            );
+
+
+            updateUI();
+
+            saveGame(false);
+
+        };
+
+
+        actions.appendChild(
+            healButton
+        );
+
+    }
+
+
+    document
+        .getElementById(
+            "dialogWindow"
+        )
+        .classList.remove(
+            "hidden"
+        );
+
+}
+
+
+function closeDialog() {
+
+    document
+        .getElementById(
+            "dialogWindow"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+}
+
+
+/* =========================================================
+   TIENDA
+========================================================= */
+
+function openShop() {
+
+    const container =
+        document.getElementById(
+            "shopItems"
+        );
+
+
+    container.innerHTML = "";
+
+
+    SHOP_ITEMS.forEach(
+        shopEntry => {
+
+            const item =
+                ITEMS[
+                    shopEntry.item
+                ];
+
+
+            const element =
+                document.createElement(
+                    "div"
+                );
+
+
+            element.className =
+                "shopItem";
+
+
+            const information =
+                document.createElement(
+                    "div"
+                );
+
+
+            information.innerHTML =
+
+                '<div class="shopItemName">' +
+                item.icon +
+                " " +
+                item.name +
+                "</div>" +
+
+                '<div class="shopItemDescription">' +
+                item.description +
+                "</div>" +
+
+                '<div class="shopPrice">' +
+                shopEntry.price +
+                " oro</div>";
+
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.className =
+                "shopButton";
+
+
+            button.textContent =
+                "Comprar";
+
+
+            button.onclick = () => {
+
+                buyItem(
+                    shopEntry.item,
+                    shopEntry.price
+                );
+
+            };
+
+
+            element.appendChild(
+                information
+            );
+
+
+            element.appendChild(
+                button
+            );
+
+
+            container.appendChild(
+                element
+            );
+
+        }
+    );
+
+
+    document
+        .getElementById(
+            "shopGold"
+        )
+        .textContent =
+        player.gold;
+
+
+    document
+        .getElementById(
+            "shopWindow"
+        )
+        .classList.remove(
+            "hidden"
+        );
+
+}
+
+
+function closeShop() {
+
+    document
+        .getElementById(
+            "shopWindow"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+}
+
+
+function buyItem(
+    itemId,
+    price
+) {
+
+    if (
+        player.gold <
+        price
+    ) {
+
+        addLog(
+            "💰 No tienes suficiente oro."
+        );
+
+        return;
+    }
+
+
+    player.gold -= price;
+
+
+    addItem(
+        itemId,
+        1
+    );
+
+
+    document
+        .getElementById(
+            "shopGold"
+        )
+        .textContent =
+        player.gold;
+
+
+    addLog(
+        "🏪 Compraste " +
+        ITEMS[itemId].name +
+        "."
+    );
+
+
+    updateUI();
+
+    saveGame(false);
+
+}
+
+
+/* =========================================================
+   ZONA ACTUAL
+========================================================= */
+
+function updateZone() {
+
+    let foundZone =
+        null;
+
+
+    Object.values(ZONES)
+        .forEach(zone => {
+
+            if (
+                player.x >= zone.x &&
+                player.x <=
+                    zone.x + zone.width &&
+                player.y >= zone.y &&
+                player.y <=
+                    zone.y + zone.height
+            ) {
+
+                foundZone = zone;
+
+            }
+
+        });
+
+
+    if (!foundZone) {
+
+        document
+            .getElementById(
+                "zoneDisplay"
+            )
+            .textContent =
+            "🌎 Tierras Salvajes";
+
+        return;
+    }
+
+
+    if (
+        player.zone !==
+        foundZone.id
+    ) {
+
+        player.zone =
+            foundZone.id;
+
+
+        addLog(
+            foundZone.icon +
+            " Entraste en " +
+            foundZone.name +
+            "."
+        );
+
+    }
+
+
+    document
+        .getElementById(
+            "zoneDisplay"
+        )
+        .textContent =
+
+        foundZone.icon +
+        " " +
+        foundZone.name;
+
+}
+
+
+/* =========================================================
+   MUERTE
+========================================================= */
+
+function playerDeath() {
+
+    const lostGold =
+        Math.min(
+            player.gold,
+            Math.floor(
+                player.gold * 0.10
+            ) + 10
+        );
+
+
+    player.gold -=
+        lostGold;
+
+
+    player.x =
+        WORLD_DATA.startX;
+
+    player.y =
+        WORLD_DATA.startY;
+
+
+    player.hp =
+        player.maxHp;
+
+
+    player.mana =
+        player.maxMana;
+
+
+    addLog(
+        "💀 Has caído. Regresas a Lumen y pierdes " +
+        lostGold +
+        " oro."
+    );
+
+
+    saveGame(false);
+
+}
+
+
+/* =========================================================
+   IA ENEMIGA
+========================================================= */
+
+function updateEnemies(dt) {
+
+    enemies.forEach(enemy => {
+
+        const type =
+            ENEMY_TYPES[
+                enemy.type
+            ];
+
+
+        if (!enemy.alive) {
+
+            enemy.respawnTimer -=
+                dt;
+
+
+            if (
+                enemy.respawnTimer <=
+                0
+            ) {
+
+                enemy.alive =
+                    true;
+
+                enemy.hp =
+                    type.maxHp;
+
+                enemy.x =
+                    enemy.spawnX +
+                    randomInt(-50, 50);
+
+                enemy.y =
+                    enemy.spawnY +
+                    randomInt(-50, 50);
+
+                enemy.attackTimer =
+                    0;
+
+            }
+
+
+            return;
+        }
+
+
+        const d =
+            distance(
+                player,
+                enemy
+            );
+
+
+        enemy.attackTimer -=
+            dt;
+
+
+        if (
+            d <=
+            type.aggroRange
+        ) {
+
+            if (
+                d >
+                type.attackRange
+            ) {
+
+                const angle =
+                    Math.atan2(
+                        player.y -
+                        enemy.y,
+
+                        player.x -
+                        enemy.x
+                    );
+
+
+                enemy.x +=
+                    Math.cos(angle) *
+                    type.speed *
+                    dt;
+
+
+                enemy.y +=
+                    Math.sin(angle) *
+                    type.speed *
+                    dt;
+
+            }
+
+
+            else if (
+                enemy.attackTimer <=
+                0
+            ) {
+
+                enemy.attackTimer =
+                    type.attackCooldown;
+
+
+                const damage =
+                    Math.max(
+                        1,
+                        type.attack -
+                        getDefense()
+                    );
+
+
+                player.hp -=
+                    damage;
+
+
+                addLog(
+                    "💥 " +
+                    type.name +
+                    " te golpea por " +
+                    damage +
+                    "."
+                );
+
+
+                if (
+                    player.hp <= 0
+                ) {
+
+                    playerDeath();
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+
+/* =========================================================
+   MOVIMIENTO
+========================================================= */
+
+function updatePlayer(dt) {
+
+    let dx = 0;
+    let dy = 0;
+
+
+    if (
+        keys["d"] ||
+        keys["arrowright"]
+    ) dx++;
+
+
+    if (
+        keys["a"] ||
+        keys["arrowleft"]
+    ) dx--;
+
+
+    if (
+        keys["s"] ||
+        keys["arrowdown"]
+    ) dy++;
+
+
+    if (
+        keys["w"] ||
+        keys["arrowup"]
+    ) dy--;
+
+
+    if (
+        dx !== 0 ||
+        dy !== 0
+    ) {
+
+        const length =
+            Math.hypot(dx, dy);
+
+
+        player.x +=
+            dx /
+            length *
+            getSpeed() *
+            dt;
+
+
+        player.y +=
+            dy /
+            length *
+            getSpeed() *
+            dt;
+
+    }
+
+
+    player.x =
+        clamp(
+            player.x,
+            25,
+            WORLD_DATA.width - 25
+        );
+
+
+    player.y =
+        clamp(
+            player.y,
+            25,
+            WORLD_DATA.height - 25
+        );
+
+}
+
+
+/* =========================================================
+   CÁMARA
+========================================================= */
+
+function updateCamera() {
+
+    camera.x =
+        player.x -
+        VIEW_WIDTH / 2;
+
+
+    camera.y =
+        player.y -
+        VIEW_HEIGHT / 2;
+
+
+    camera.x =
+        clamp(
+            camera.x,
+            0,
+            WORLD_DATA.width -
+            VIEW_WIDTH
+        );
+
+
+    camera.y =
+        clamp(
+            camera.y,
+            0,
+            WORLD_DATA.height -
+            VIEW_HEIGHT
+        );
+
+}
+
+
+/* =========================================================
+   UPDATE
+========================================================= */
+
+function update(dt) {
+
+    attackCooldown =
+        Math.max(
+            0,
+            attackCooldown - dt
+        );
+
+
+    autoSaveTimer += dt;
+
+
+    updatePlayer(dt);
+
+    updateEnemies(dt);
+
+    updateCamera();
+
+    updateZone();
+
+
+    if (
+        autoSaveTimer >=
+        15
+    ) {
+
+        autoSaveTimer = 0;
+
+        saveGame(false);
+
+    }
+
+}
+
+
+/* =========================================================
+   CONVERSIÓN WORLD → SCREEN
+========================================================= */
+
+function screenX(worldX) {
+    return worldX - camera.x;
+}
+
+function screenY(worldY) {
+    return worldY - camera.y;
+}
+
+
+/* =========================================================
+   RECTÁNGULO
+========================================================= */
+
+function drawRect(
+    x,
+    y,
+    width,
+    height,
+    color
+) {
+
+    ctx.fillStyle = color;
+
+    ctx.fillRect(
+        Math.round(x),
+        Math.round(y),
+        width,
+        height
+    );
+
+}
+
+
+/* =========================================================
+   TEXTO
+========================================================= */
+
+function drawText(
+    text,
+    x,
+    y,
+    color = "#fff",
+    size = 12
+) {
+
+    ctx.fillStyle =
+        color;
+
+    ctx.font =
+        size + "px monospace";
+
+    ctx.fillText(
+        text,
+        Math.round(x),
+        Math.round(y)
+    );
+
+}
+
+
+/* =========================================================
+   MAPA
+========================================================= */
+
+function drawWorld() {
+
+    drawRect(
+        0,
+        0,
+        VIEW_WIDTH,
+        VIEW_HEIGHT,
+        "#17351f"
+    );
+
+
+    /* CUADRÍCULA */
+
+    ctx.strokeStyle =
+        "#214a2c";
+
+
+    const gridSize = 64;
+
+
+    const startX =
+        -(
+            camera.x %
+            gridSize
+        );
+
+
+    const startY =
+        -(
+            camera.y %
+            gridSize
+        );
+
+
+    for (
+        let x = startX;
+        x < VIEW_WIDTH;
+        x += gridSize
+    ) {
+
+        for (
+            let y = startY;
+            y < VIEW_HEIGHT;
+            y += gridSize
+        ) {
+
+            ctx.strokeRect(
+                x,
+                y,
+                gridSize,
+                gridSize
+            );
+
+        }
+
+    }
+
+
+    /* ZONAS */
+
+    Object.values(ZONES)
+        .forEach(zone => {
+
+            const x =
+                screenX(zone.x);
+
+            const y =
+                screenY(zone.y);
+
+
+            let color =
+                "#24462d";
+
+
+            if (
+                zone.id ===
+                "lumen"
+            ) {
+                color = "#31543a";
+            }
+
+
+            if (
+                zone.id ===
+                "goblinCamp"
+            ) {
+                color = "#4a3925";
+            }
+
+
+            if (
+                zone.id ===
+                "darkForest"
+            ) {
+                color = "#192b28";
+            }
+
+
+            if (
+                zone.id ===
+                "ruins"
+            ) {
+                color = "#45434b";
+            }
+
+
+            ctx.fillStyle = color;
+
+            ctx.globalAlpha = 0.45;
+
+
+            ctx.fillRect(
+                x,
+                y,
+                zone.width,
+                zone.height
+            );
+
+
+            ctx.globalAlpha = 1;
+
+
+            drawText(
+                zone.icon +
+                " " +
+                zone.name,
+
+                x + 20,
+                y + 30,
+
+                "#ffffffaa",
+
+                14
+            );
+
+        });
+
+
+    drawVillage();
+
+}
+
+
+/* =========================================================
+   ALDEA
+========================================================= */
+
+function drawVillage() {
+
+    const houses = [
+
+        [330, 340],
+        [470, 330],
+        [610, 350],
+        [330, 620],
+        [620, 620]
+
+    ];
+
+
+    houses.forEach(
+        ([x, y]) => {
+
+            const sx =
+                screenX(x);
+
+            const sy =
+                screenY(y);
+
+
+            drawRect(
+                sx,
+                sy,
+                90,
+                65,
+                "#754a32"
+            );
+
+
+            drawRect(
+                sx - 8,
+                sy - 18,
+                106,
+                22,
+                "#4b2f24"
+            );
+
+
+            drawRect(
+                sx + 36,
+                sy + 35,
+                20,
+                30,
+                "#31251f"
+            );
+
+        }
+    );
+
+
+    /* FUENTE */
+
+    const fountainX =
+        screenX(520);
+
+    const fountainY =
+        screenY(560);
+
+
+    drawRect(
+        fountainX - 25,
+        fountainY - 12,
+        50,
+        24,
+        "#64748b"
+    );
+
+
+    drawRect(
+        fountainX - 18,
+        fountainY - 8,
+        36,
+        16,
+        "#38bdf8"
+    );
+
+}
+
+
+/* =========================================================
+   PERSONAJE
+========================================================= */
+
+function drawCharacter(
+    worldX,
+    worldY,
+    bodyColor
+) {
+
+    const x =
+        screenX(worldX);
+
+    const y =
+        screenY(worldY);
+
+
+    drawRect(
+        x - 11,
+        y - 15,
+        22,
+        28,
+        bodyColor
+    );
+
+
+    drawRect(
+        x - 9,
+        y - 25,
+        18,
+        12,
+        "#f1c27d"
+    );
+
+
+    drawRect(
+        x - 8,
+        y - 29,
+        16,
+        6,
+        "#3f2b1f"
+    );
+
+
+    drawRect(
+        x - 7,
+        y + 13,
+        5,
+        7,
+        "#111827"
+    );
+
+
+    drawRect(
+        x + 2,
+        y + 13,
+        5,
+        7,
+        "#111827"
+    );
+
+}
+
+
+/* =========================================================
+   NPC
+========================================================= */
+
+function drawNPCs() {
+
+    Object.values(NPCS)
+        .forEach(npc => {
+
+            drawCharacter(
+                npc.x,
+                npc.y,
+                npc.color
+            );
+
+
+            drawText(
+                npc.name,
+
+                screenX(npc.x) - 20,
+
+                screenY(npc.y) - 37,
+
+                "#fef3c7",
+
+                10
+            );
+
+
+            drawText(
+                npc.role,
+
+                screenX(npc.x) - 35,
+
+                screenY(npc.y) + 31,
+
+                "#cbd5e1",
+
+                8
+            );
+
+        });
+
+}
+
+
+/* =========================================================
+   ENEMIGOS
+========================================================= */
+
+function drawEnemies() {
+
+    enemies.forEach(enemy => {
+
+        if (!enemy.alive) return;
+
+
+        const type =
+            ENEMY_TYPES[
+                enemy.type
+            ];
+
+
+        const x =
+            screenX(enemy.x);
+
+        const y =
+            screenY(enemy.y);
+
+
+        if (
+            x < -80 ||
+            x > VIEW_WIDTH + 80 ||
+            y < -80 ||
+            y > VIEW_HEIGHT + 80
+        ) {
+
+            return;
+        }
+
+
+        drawRect(
+            x - 13,
+            y - 13,
+            26,
+            26,
+            type.color
+        );
+
+
+        drawRect(
+            x - 8,
+            y - 5,
+            4,
+            4,
+            "#111"
+        );
+
+
+        drawRect(
+            x + 4,
+            y - 5,
+            4,
+            4,
+            "#111"
+        );
+
+
+        drawRect(
+            x - 22,
+            y - 30,
+            44,
+            5,
+            "#111"
+        );
+
+
+        drawRect(
+            x - 22,
+            y - 30,
+
+            44 *
+            (
+                enemy.hp /
+                type.maxHp
+            ),
+
+            5,
+
+            "#ef4444"
+        );
+
+
+        drawText(
+            type.name,
+
+            x - 30,
+            y + 29,
+
+            "#e5e7eb",
+
+            8
+        );
+
+    });
+
+}
+
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function render() {
+
+    ctx.clearRect(
+        0,
+        0,
+        VIEW_WIDTH,
+        VIEW_HEIGHT
+    );
+
+
+    drawWorld();
+
+    drawNPCs();
+
+    drawEnemies();
+
+
+    drawCharacter(
+        player.x,
+        player.y,
+        "#3b82f6"
+    );
+
+
+    drawText(
+        "Héroe",
+
+        screenX(player.x) - 18,
+
+        screenY(player.y) - 38,
+
+        "#ffffff",
+
+        11
+    );
+
+}
+
+
+/* =========================================================
+   INVENTARIO UI
+========================================================= */
+
+function renderInventory() {
+
+    const container =
+        document.getElementById(
+            "inventory"
+        );
+
+
+    container.innerHTML = "";
+
+
+    let totalItems = 0;
+
+
+    Object.entries(inventory)
+        .forEach(
+            ([itemId, quantity]) => {
+
+                if (quantity <= 0) return;
+
+
+                totalItems +=
+                    quantity;
+
+
+                const item =
+                    ITEMS[itemId];
+
+
+                if (!item) return;
+
+
+                const element =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                element.className =
+                    "inventoryItem " +
+                    item.type;
+
+
+                element.innerHTML =
+
+                    "<span>" +
+                    item.icon +
+                    " " +
+                    item.name +
+                    "</span>" +
+
+                    '<span class="quantity">x' +
+                    quantity +
+                    "</span>";
+
+
+                element.onclick =
+                    () =>
+                    useInventoryItem(
+                        itemId
+                    );
+
+
+                container.appendChild(
+                    element
+                );
+
+            }
+        );
+
+
+    document
+        .getElementById(
+            "inventorySpace"
+        )
+        .textContent =
+
+        totalItems +
+        " / 20";
+
+}
+
+
+/* =========================================================
+   EQUIPMENT UI
+========================================================= */
+
+function renderEquipment() {
+
+    const slots = {
+
+        weapon:
+            "weaponSlot",
+
+        armor:
+            "armorSlot",
+
+        helmet:
+            "helmetSlot",
+
+        boots:
+            "bootsSlot"
+
+    };
+
+
+    Object.entries(slots)
+        .forEach(
+            ([slot, elementId]) => {
+
+                const itemId =
+                    equipment[slot];
+
+
+                document
+                    .getElementById(
+                        elementId
+                    )
+                    .textContent =
+
+                    itemId
+                    ? ITEMS[itemId].name
+                    : "Vacío";
+
+            }
+        );
+
+}
+
+
+/* =========================================================
+   QUEST UI
+========================================================= */
+
+function renderQuest() {
+
+    const quest =
+        getCurrentQuest();
+
+
+    if (!quest) {
+
+        document
+            .getElementById(
+                "questName"
+            )
+            .textContent =
+            "Sin misión";
+
+
+        document
+            .getElementById(
+                "questDescription"
+            )
+            .textContent =
+            "Has completado el contenido de V3.";
+
+
+        document
+            .getElementById(
+                "questProgress"
+            )
+            .textContent =
+            "✓";
+
+
+        return;
+    }
+
+
+    document
+        .getElementById(
+            "questName"
+        )
+        .textContent =
+        quest.name;
+
+
+    document
+        .getElementById(
+            "questDescription"
+        )
+        .textContent =
+        quest.description;
+
+
+    document
+        .getElementById(
+            "questProgress"
+        )
+        .textContent =
+
+        Math.min(
+            questState.progress,
+            quest.amount
+        ) +
+        " / " +
+        quest.amount;
+
+}
+
+
+/* =========================================================
+   TARGET UI
+========================================================= */
+
+function renderTarget() {
+
+    const targetName =
+        document.getElementById(
+            "targetName"
+        );
+
+
+    const targetBar =
+        document.getElementById(
+            "targetHpBar"
+        );
+
+
+    if (
+        !currentTarget ||
+        !currentTarget.alive
+    ) {
+
+        targetName.textContent =
+            "Ningún objetivo";
+
+        targetBar.style.width =
+            "0%";
+
+        return;
+    }
+
+
+    const type =
+        ENEMY_TYPES[
+            currentTarget.type
+        ];
+
+
+    targetName.textContent =
+
+        type.name +
+        " · " +
+        Math.max(
+            0,
+            Math.ceil(
+                currentTarget.hp
+            )
+        ) +
+        "/" +
+        type.maxHp;
+
+
+    targetBar.style.width =
+
+        (
+            currentTarget.hp /
+            type.maxHp *
+            100
+        ) +
+        "%";
+
+}
+
+
+/* =========================================================
+   UI GENERAL
+========================================================= */
+
+function updateUI() {
+
+    document
+        .getElementById(
+            "levelValue"
+        )
+        .textContent =
+        player.level;
+
+
+    document
+        .getElementById(
+            "attackValue"
+        )
+        .textContent =
+        getAttack();
+
+
+    document
+        .getElementById(
+            "defenseValue"
+        )
+        .textContent =
+        getDefense();
+
+
+    document
+        .getElementById(
+            "goldValue"
+        )
+        .textContent =
+        player.gold;
+
+
+    document
+        .getElementById(
+            "hpText"
+        )
+        .textContent =
+
+        Math.ceil(
+            player.hp
+        ) +
+        " / " +
+        player.maxHp;
+
+
+    document
+        .getElementById(
+            "hpBar"
+        )
+        .style.width =
+
+        (
+            player.hp /
+            player.maxHp *
+            100
+        ) +
+        "%";
+
+
+    document
+        .getElementById(
+            "manaText"
+        )
+        .textContent =
+
+        player.mana +
+        " / " +
+        player.maxMana;
+
+
+    document
+        .getElementById(
+            "manaBar"
+        )
+        .style.width =
+
+        (
+            player.mana /
+            player.maxMana *
+            100
+        ) +
+        "%";
+
+
+    document
+        .getElementById(
+            "xpText"
+        )
+        .textContent =
+
+        player.xp +
+        " / " +
+        player.nextXp;
+
+
+    document
+        .getElementById(
+            "xpBar"
+        )
+        .style.width =
+
+        (
+            player.xp /
+            player.nextXp *
+            100
+        ) +
+        "%";
+
+
+    document
+        .getElementById(
+            "playerMini"
+        )
+        .textContent =
+
+        "Nv. " +
+        player.level +
+        " · ❤️ " +
+        Math.ceil(
+            player.hp
+        ) +
+        "/" +
+        player.maxHp +
+        " · 💰 " +
+        player.gold;
+
+
+    renderTarget();
+
+}
+
+
+/* =========================================================
+   GUARDAR
+========================================================= */
+
+function saveGame(
+    showMessage = true
+) {
+
+    const save = {
+
+        player,
+        inventory,
+        equipment,
+        questState
+
+    };
+
 
     try {
 
-        const saveData = {
-
-            player: player,
-
-            inventory: inventory,
-
-            quest: quest
-        };
-
         localStorage.setItem(
             SAVE_KEY,
-            JSON.stringify(saveData)
+            JSON.stringify(save)
         );
+
 
         if (showMessage) {
 
             addLog(
-                "💾 Progreso guardado."
+                "💾 Partida guardada."
             );
 
         }
@@ -276,39 +2749,38 @@ function saveGame(showMessage = true) {
 
     catch (error) {
 
-        if (showMessage) {
-
-            addLog(
-                "⚠ No se pudo guardar la partida."
-            );
-
-        }
+        addLog(
+            "⚠ Error guardando la partida."
+        );
 
     }
+
 }
 
 
-/* ==========================================================
-   CARGAR PARTIDA
-========================================================== */
+/* =========================================================
+   CARGAR
+========================================================= */
 
 function loadGame() {
 
     try {
 
-        const saved =
+        const raw =
             localStorage.getItem(
                 SAVE_KEY
             );
 
-        if (!saved) {
+
+        if (!raw) {
 
             return false;
 
         }
 
+
         const data =
-            JSON.parse(saved);
+            JSON.parse(raw);
 
 
         if (data.player) {
@@ -323,20 +2795,24 @@ function loadGame() {
 
         if (data.inventory) {
 
-            Object.assign(
-                inventory,
-                data.inventory
-            );
+            inventory =
+                data.inventory;
 
         }
 
 
-        if (data.quest) {
+        if (data.equipment) {
 
-            Object.assign(
-                quest,
-                data.quest
-            );
+            equipment =
+                data.equipment;
+
+        }
+
+
+        if (data.questState) {
+
+            questState =
+                data.questState;
 
         }
 
@@ -350,25 +2826,23 @@ function loadGame() {
         return false;
 
     }
+
 }
 
 
-/* ==========================================================
-   REINICIAR PARTIDA
-========================================================== */
+/* =========================================================
+   RESET
+========================================================= */
 
 function resetGame() {
 
-    const confirmation =
+    const answer =
         confirm(
-            "¿Seguro que quieres borrar todo el progreso?"
+            "¿Quieres borrar todo el progreso de V3?"
         );
 
-    if (!confirmation) {
 
-        return;
-
-    }
+    if (!answer) return;
 
 
     localStorage.removeItem(
@@ -377,12 +2851,13 @@ function resetGame() {
 
 
     location.reload();
+
 }
 
 
-/* ==========================================================
-   TECLADO
-========================================================== */
+/* =========================================================
+   EVENTOS TECLADO
+========================================================= */
 
 window.addEventListener(
     "keydown",
@@ -391,15 +2866,19 @@ window.addEventListener(
         const key =
             event.key.toLowerCase();
 
+
         keys[key] = true;
 
 
         if (
-            key === " " ||
-            key === "arrowup" ||
-            key === "arrowdown" ||
-            key === "arrowleft" ||
-            key === "arrowright"
+            [
+                " ",
+                "arrowup",
+                "arrowdown",
+                "arrowleft",
+                "arrowright"
+            ]
+            .includes(key)
         ) {
 
             event.preventDefault();
@@ -407,11 +2886,7 @@ window.addEventListener(
         }
 
 
-        if (event.repeat) {
-
-            return;
-
-        }
+        if (event.repeat) return;
 
 
         if (key === " ") {
@@ -457,43 +2932,70 @@ window.addEventListener(
 );
 
 
-/* ==========================================================
+/* =========================================================
    BOTONES
-========================================================== */
+========================================================= */
 
 document
     .getElementById(
         "attackButton"
     )
-    .addEventListener(
-        "click",
-        attack
-    );
+    .onclick =
+    attack;
+
+
+document
+    .getElementById(
+        "interactButton"
+    )
+    .onclick =
+    interact;
 
 
 document
     .getElementById(
         "potionButton"
     )
-    .addEventListener(
-        "click",
-        usePotion
-    );
+    .onclick =
+    usePotion;
+
+
+document
+    .getElementById(
+        "saveButton"
+    )
+    .onclick =
+    () =>
+    saveGame(true);
 
 
 document
     .getElementById(
         "resetButton"
     )
-    .addEventListener(
-        "click",
-        resetGame
-    );
+    .onclick =
+    resetGame;
 
 
-/* ==========================================================
+document
+    .getElementById(
+        "closeDialog"
+    )
+    .onclick =
+    closeDialog;
+
+
+document
+    .getElementById(
+        "closeShop"
+    )
+    .onclick =
+    closeShop;
+
+
+/* =========================================================
    CONTROLES MÓVILES
-========================================================== */
+========================================================= */
 
 document
     .querySelectorAll(
@@ -505,1914 +3007,75 @@ document
             button.dataset.key;
 
 
-        const startMove =
-            event => {
-
-                event.preventDefault();
-
-                keys[key] = true;
-
-            };
-
-
-        const stopMove =
-            event => {
-
-                event.preventDefault();
-
-                keys[key] = false;
-
-            };
-
-
         button.addEventListener(
             "pointerdown",
-            startMove
+            event => {
+
+                event.preventDefault();
+
+                keys[key] =
+                    true;
+
+            }
         );
+
+
+        const stop =
+            event => {
+
+                event.preventDefault();
+
+                keys[key] =
+                    false;
+
+            };
 
 
         button.addEventListener(
             "pointerup",
-            stopMove
+            stop
         );
 
 
         button.addEventListener(
             "pointercancel",
-            stopMove
+            stop
         );
 
 
         button.addEventListener(
             "pointerleave",
-            stopMove
+            stop
         );
 
     });
 
 
-/* ==========================================================
-   DISTANCIA
-========================================================== */
+/* =========================================================
+   LOOP
+========================================================= */
 
-function distance(
-    objectA,
-    objectB
-) {
+function gameLoop(time) {
 
-    return Math.hypot(
-
-        objectA.x -
-        objectB.x,
-
-        objectA.y -
-        objectB.y
-
-    );
-}
-
-
-/* ==========================================================
-   NÚMERO ALEATORIO
-========================================================== */
-
-function randomInt(
-    min,
-    max
-) {
-
-    return Math.floor(
-
-        Math.random() *
-        (max - min + 1)
-
-    ) + min;
-}
-
-
-/* ==========================================================
-   LIMITAR VALOR
-========================================================== */
-
-function clamp(
-    value,
-    min,
-    max
-) {
-
-    return Math.max(
-
-        min,
-
+    const dt =
         Math.min(
-            max,
-            value
-        )
-
-    );
-}
-
-
-/* ==========================================================
-   ATAQUE DEL JUGADOR
-========================================================== */
-
-function attack() {
-
-    if (
-        attackCooldown > 0
-    ) {
-
-        return;
-
-    }
-
-
-    attackCooldown =
-        0.45;
-
-
-    let target = null;
-
-    let closestDistance =
-        Infinity;
-
-
-    enemies.forEach(enemy => {
-
-        if (!enemy.alive) {
-
-            return;
-
-        }
-
-
-        const enemyDistance =
-            distance(
-                player,
-                enemy
-            );
-
-
-        if (
-            enemyDistance < 72 &&
-            enemyDistance <
-            closestDistance
-        ) {
-
-            target = enemy;
-
-            closestDistance =
-                enemyDistance;
-
-        }
-
-    });
-
-
-    if (!target) {
-
-        addLog(
-            "⚔ No hay enemigo al alcance."
-        );
-
-        return;
-
-    }
-
-
-    const attackDamage =
-
-        Math.max(
-
-            1,
-
-            player.damage +
-            randomInt(
-                -3,
-                4
-            )
-
-        );
-
-
-    target.hp -=
-        attackDamage;
-
-
-    addLog(
-
-        "⚔ Golpeas a " +
-        target.name +
-        " por " +
-        attackDamage +
-        " de daño."
-
-    );
-
-
-    if (
-        target.hp <= 0
-    ) {
-
-        defeatEnemy(
-            target
-        );
-
-    }
-
-
-    updateInterface();
-}
-
-
-/* ==========================================================
-   ENEMIGO DERROTADO
-========================================================== */
-
-function defeatEnemy(enemy) {
-
-    enemy.alive =
-        false;
-
-
-    enemy.respawnTimer =
-
-        5 +
-        Math.random() *
-        4;
-
-
-    const goldReward =
-
-        enemy.gold +
-        randomInt(
-            0,
-            7
-        );
-
-
-    player.gold +=
-        goldReward;
-
-
-    player.xp +=
-        enemy.xp;
-
-
-    player.kills++;
-
-
-    quest.progress =
-
-        Math.min(
-
-            quest.target,
-
-            quest.progress + 1
-
-        );
-
-
-    /* LOOT */
-
-    if (
-        enemy.name ===
-        "Goblin"
-    ) {
-
-        if (
-            Math.random() <
-            0.55
-        ) {
-
-            inventory.iron++;
-
-            addLog(
-                "🎒 Encontraste Hierro."
-            );
-
-        }
-
-    }
-
-
-    if (
-        enemy.name ===
-        "Slime Verde"
-    ) {
-
-        if (
-            Math.random() <
-            0.55
-        ) {
-
-            inventory.wood++;
-
-            addLog(
-                "🎒 Encontraste Madera."
-            );
-
-        }
-
-    }
-
-
-    if (
-        enemy.name ===
-        "Lobo Sombrío"
-    ) {
-
-        if (
-            Math.random() <
-            0.65
-        ) {
-
-            inventory.wolfFang++;
-
-            addLog(
-                "🎒 Encontraste Colmillo de Lobo."
-            );
-
-        }
-
-    }
-
-
-    addLog(
-
-        "☠ " +
-        enemy.name +
-        " derrotado. +" +
-        goldReward +
-        " oro · +" +
-        enemy.xp +
-        " EXP."
-
-    );
-
-
-    checkLevelUp();
-
-
-    /* COMPLETAR MISIÓN */
-
-    if (
-        !quest.completed &&
-        quest.progress >=
-        quest.target
-    ) {
-
-        completeQuest();
-
-    }
-
-
-    saveGame(false);
-
-}
-
-
-/* ==========================================================
-   COMPLETAR MISIÓN
-========================================================== */
-
-function completeQuest() {
-
-    quest.completed =
-        true;
-
-
-    player.gold +=
-        quest.rewardGold;
-
-
-    player.xp +=
-        quest.rewardXp;
-
-
-    addLog(
-
-        "🏆 ¡Misión completada! +" +
-        quest.rewardGold +
-        " oro · +" +
-        quest.rewardXp +
-        " EXP."
-
-    );
-
-
-    checkLevelUp();
-
-}
-
-
-/* ==========================================================
-   SUBIR NIVEL
-========================================================== */
-
-function checkLevelUp() {
-
-    while (
-        player.xp >=
-        player.nextXp
-    ) {
-
-        player.xp -=
-            player.nextXp;
-
-
-        player.level++;
-
-
-        player.nextXp =
-
-            Math.floor(
-
-                player.nextXp *
-                1.42
-
-            );
-
-
-        player.maxHp +=
-            22;
-
-
-        player.maxMana +=
-            8;
-
-
-        player.damage +=
-            5;
-
-
-        player.speed +=
-            3;
-
-
-        player.hp =
-            player.maxHp;
-
-
-        player.mana =
-            player.maxMana;
-
-
-        addLog(
-
-            "✨ ¡NIVEL " +
-            player.level +
-            "! Tus atributos aumentaron."
-
-        );
-
-    }
-
-}
-
-
-/* ==========================================================
-   POCIÓN
-========================================================== */
-
-function usePotion() {
-
-    if (
-        inventory.potion <= 0
-    ) {
-
-        addLog(
-            "🧪 No tienes pociones."
-        );
-
-        return;
-
-    }
-
-
-    if (
-        player.hp >=
-        player.maxHp
-    ) {
-
-        addLog(
-            "❤️ Ya tienes la vida completa."
-        );
-
-        return;
-
-    }
-
-
-    inventory.potion--;
-
-
-    const heal =
-
-        Math.min(
-
-            45,
-
-            player.maxHp -
-            player.hp
-
-        );
-
-
-    player.hp +=
-        heal;
-
-
-    addLog(
-
-        "🧪 Recuperas " +
-        heal +
-        " HP."
-
-    );
-
-
-    saveGame(false);
-
-    updateInterface();
-
-}
-
-
-/* ==========================================================
-   INTERACTUAR
-========================================================== */
-
-function interact() {
-
-    /* CURANDERA */
-
-    const healer = {
-
-        x: 180,
-        y: 250
-
-    };
-
-
-    if (
-        distance(
-            player,
-            healer
-        ) < 70
-    ) {
-
-        inventory.potion++;
-
-
-        addLog(
-            "🧙‍♀️ La curandera te entrega una poción."
-        );
-
-
-        saveGame(false);
-
-        updateInterface();
-
-        return;
-
-    }
-
-
-    /* CRISTAL */
-
-    const crystal = {
-
-        x: 400,
-        y: 120
-
-    };
-
-
-    if (
-        distance(
-            player,
-            crystal
-        ) < 70
-    ) {
-
-        inventory.crystal++;
-
-
-        addLog(
-            "💎 Obtienes un Cristal de Etherial."
-        );
-
-
-        saveGame(false);
-
-        updateInterface();
-
-        return;
-
-    }
-
-
-    addLog(
-        "No hay nada con qué interactuar."
-    );
-
-}
-
-
-/* ==========================================================
-   MUERTE
-========================================================== */
-
-function playerDeath() {
-
-    player.x = 300;
-
-    player.y = 280;
-
-
-    player.hp =
-        player.maxHp;
-
-
-    player.mana =
-        player.maxMana;
-
-
-    const goldLost =
-
-        Math.min(
-            25,
-            player.gold
-        );
-
-
-    player.gold -=
-        goldLost;
-
-
-    addLog(
-
-        "💀 Has caído. Regresas a Lumen y pierdes " +
-        goldLost +
-        " oro."
-
-    );
-
-
-    saveGame(false);
-
-}
-
-
-/* ==========================================================
-   ACTUALIZAR JUEGO
-========================================================== */
-
-function update(deltaTime) {
-
-    attackCooldown =
-
-        Math.max(
-
-            0,
-
-            attackCooldown -
-            deltaTime
-
-        );
-
-
-    autoSaveTimer +=
-        deltaTime;
-
-
-    /* MOVIMIENTO */
-
-    let moveX = 0;
-
-    let moveY = 0;
-
-
-    if (
-        keys["d"] ||
-        keys["arrowright"]
-    ) {
-
-        moveX++;
-
-    }
-
-
-    if (
-        keys["a"] ||
-        keys["arrowleft"]
-    ) {
-
-        moveX--;
-
-    }
-
-
-    if (
-        keys["s"] ||
-        keys["arrowdown"]
-    ) {
-
-        moveY++;
-
-    }
-
-
-    if (
-        keys["w"] ||
-        keys["arrowup"]
-    ) {
-
-        moveY--;
-
-    }
-
-
-    if (
-        moveX !== 0 ||
-        moveY !== 0
-    ) {
-
-        const length =
-
-            Math.hypot(
-                moveX,
-                moveY
-            );
-
-
-        player.x +=
-
-            moveX /
-            length *
-            player.speed *
-            deltaTime;
-
-
-        player.y +=
-
-            moveY /
-            length *
-            player.speed *
-            deltaTime;
-
-    }
-
-
-    /* LÍMITES DEL MAPA */
-
-    player.x =
-
-        clamp(
-            player.x,
-            25,
-            GAME_WIDTH - 25
-        );
-
-
-    player.y =
-
-        clamp(
-            player.y,
-            55,
-            GAME_HEIGHT - 25
-        );
-
-
-    /* IA DE ENEMIGOS */
-
-    enemies.forEach(enemy => {
-
-        if (!enemy.alive) {
-
-            enemy.respawnTimer -=
-                deltaTime;
-
-
-            if (
-                enemy.respawnTimer <=
-                0
-            ) {
-
-                respawnEnemy(
-                    enemy
-                );
-
-            }
-
-
-            return;
-
-        }
-
-
-        const enemyDistance =
-
-            distance(
-                player,
-                enemy
-            );
-
-
-        /* PERSEGUIR */
-
-        if (
-            enemyDistance <
-            150
-        ) {
-
-            const angle =
-
-                Math.atan2(
-
-                    player.y -
-                    enemy.y,
-
-                    player.x -
-                    enemy.x
-
-                );
-
-
-            if (
-                enemyDistance >
-                34
-            ) {
-
-                enemy.x +=
-
-                    Math.cos(
-                        angle
-                    ) *
-                    28 *
-                    deltaTime;
-
-
-                enemy.y +=
-
-                    Math.sin(
-                        angle
-                    ) *
-                    28 *
-                    deltaTime;
-
-            }
-
-        }
-
-
-        /* ATAQUE ENEMIGO */
-
-        enemy.attackTimer -=
-            deltaTime;
-
-
-        if (
-            enemyDistance <
-            34 &&
-            enemy.attackTimer <=
-            0
-        ) {
-
-            enemy.attackTimer =
-                1.25;
-
-
-            player.hp =
-
-                Math.max(
-
-                    0,
-
-                    player.hp -
-                    enemy.damage
-
-                );
-
-
-            addLog(
-
-                "💥 " +
-                enemy.name +
-                " te golpea por " +
-                enemy.damage +
-                "."
-
-            );
-
-
-            if (
-                player.hp <=
-                0
-            ) {
-
-                playerDeath();
-
-            }
-
-        }
-
-    });
-
-
-    /* AUTOGUARDADO */
-
-    if (
-        autoSaveTimer >=
-        12
-    ) {
-
-        autoSaveTimer = 0;
-
-        saveGame(false);
-
-    }
-
-}
-
-
-/* ==========================================================
-   RESPAWN ENEMIGO
-========================================================== */
-
-function respawnEnemy(enemy) {
-
-    enemy.alive =
-        true;
-
-
-    enemy.hp =
-        enemy.maxHp;
-
-
-    enemy.attackTimer =
-        0;
-
-
-    enemy.x =
-
-        480 +
-        Math.random() *
-        390;
-
-
-    enemy.y =
-
-        100 +
-        Math.random() *
-        350;
-
-
-    addLog(
-
-        "👹 " +
-        enemy.name +
-        " ha reaparecido."
-
-    );
-
-}
-
-
-/* ==========================================================
-   DIBUJAR RECTÁNGULO
-========================================================== */
-
-function drawRectangle(
-    x,
-    y,
-    width,
-    height,
-    color
-) {
-
-    ctx.fillStyle =
-        color;
-
-
-    ctx.fillRect(
-
-        Math.round(x),
-
-        Math.round(y),
-
-        Math.round(width),
-
-        Math.round(height)
-
-    );
-
-}
-
-
-/* ==========================================================
-   TEXTO
-========================================================== */
-
-function drawText(
-    text,
-    x,
-    y,
-    color = "#ffffff",
-    size = 12
-) {
-
-    ctx.fillStyle =
-        color;
-
-
-    ctx.font =
-        size +
-        "px monospace";
-
-
-    ctx.fillText(
-
-        text,
-
-        Math.round(x),
-
-        Math.round(y)
-
-    );
-
-}
-
-
-/* ==========================================================
-   BARRA PEQUEÑA
-========================================================== */
-
-function drawBar(
-    x,
-    y,
-    width,
-    percentage,
-    color
-) {
-
-    drawRectangle(
-
-        x,
-        y,
-        width,
-        5,
-        "#111111"
-
-    );
-
-
-    drawRectangle(
-
-        x,
-        y,
-        width *
-        Math.max(
-            0,
-            Math.min(
-                1,
-                percentage
-            )
-        ),
-        5,
-        color
-
-    );
-
-}
-
-
-/* ==========================================================
-   DIBUJAR PERSONAJE
-========================================================== */
-
-function drawCharacter(
-    x,
-    y,
-    armorColor
-) {
-
-    /* CUERPO */
-
-    drawRectangle(
-
-        x - 11,
-        y - 16,
-
-        22,
-        28,
-
-        armorColor
-
-    );
-
-
-    /* CABEZA */
-
-    drawRectangle(
-
-        x - 9,
-        y - 25,
-
-        18,
-        12,
-
-        "#f1c27d"
-
-    );
-
-
-    /* CABELLO */
-
-    drawRectangle(
-
-        x - 8,
-        y - 29,
-
-        16,
-        6,
-
-        "#3f2b1f"
-
-    );
-
-
-    /* PIERNAS */
-
-    drawRectangle(
-
-        x - 7,
-        y + 12,
-
-        5,
-        7,
-
-        "#1e293b"
-
-    );
-
-
-    drawRectangle(
-
-        x + 2,
-        y + 12,
-
-        5,
-        7,
-
-        "#1e293b"
-
-    );
-
-}
-
-
-/* ==========================================================
-   DIBUJAR MONSTRUO
-========================================================== */
-
-function drawMonster(enemy) {
-
-    let bodyColor =
-        "#86efac";
-
-    let headColor =
-        "#4ade80";
-
-
-    if (
-        enemy.name ===
-        "Goblin"
-    ) {
-
-        bodyColor =
-            "#a3e635";
-
-        headColor =
-            "#4d7c0f";
-
-    }
-
-
-    if (
-        enemy.name ===
-        "Lobo Sombrío"
-    ) {
-
-        bodyColor =
-            "#8b5cf6";
-
-        headColor =
-            "#6d28d9";
-
-    }
-
-
-    drawRectangle(
-
-        enemy.x - 13,
-        enemy.y - 12,
-
-        26,
-        24,
-
-        bodyColor
-
-    );
-
-
-    drawRectangle(
-
-        enemy.x - 10,
-        enemy.y - 18,
-
-        20,
-        8,
-
-        headColor
-
-    );
-
-
-    /* OJOS */
-
-    drawRectangle(
-
-        enemy.x - 7,
-        enemy.y - 7,
-
-        4,
-        4,
-
-        "#111111"
-
-    );
-
-
-    drawRectangle(
-
-        enemy.x + 3,
-        enemy.y - 7,
-
-        4,
-        4,
-
-        "#111111"
-
-    );
-
-}
-
-
-/* ==========================================================
-   DIBUJAR MAPA
-========================================================== */
-
-function drawMap() {
-
-    /* PASTO */
-
-    drawRectangle(
-
-        0,
-        0,
-
-        GAME_WIDTH,
-        GAME_HEIGHT,
-
-        "#17351f"
-
-    );
-
-
-    /* CUADRÍCULA DE TERRENO */
-
-    ctx.strokeStyle =
-        "#214a2c";
-
-
-    for (
-        let x = 0;
-        x < GAME_WIDTH;
-        x += 32
-    ) {
-
-        for (
-            let y = 40;
-            y < GAME_HEIGHT;
-            y += 32
-        ) {
-
-            ctx.strokeRect(
-
-                x,
-                y,
-                32,
-                32
-
-            );
-
-        }
-
-    }
-
-
-    /* CAMINO HORIZONTAL */
-
-    drawRectangle(
-
-        0,
-        245,
-
-        GAME_WIDTH,
-        70,
-
-        "#5b513c"
-
-    );
-
-
-    /* CAMINO VERTICAL */
-
-    drawRectangle(
-
-        350,
-        40,
-
-        80,
-        GAME_HEIGHT - 40,
-
-        "#5b513c"
-
-    );
-
-
-    /* LAGO */
-
-    drawRectangle(
-
-        760,
-        50,
-
-        160,
-        120,
-
-        "#214b68"
-
-    );
-
-
-    /* AGUA */
-
-    for (
-        let y = 70;
-        y < 160;
-        y += 18
-    ) {
-
-        drawRectangle(
-
-            775,
-            y,
-
-            55,
-            2,
-
-            "#2c6688"
-
-        );
-
-
-        drawRectangle(
-
-            845,
-            y + 6,
-
-            55,
-            2,
-
-            "#2c6688"
-
-        );
-
-    }
-
-
-    /* ALDEA */
-
-    drawRectangle(
-
-        70,
-        150,
-
-        230,
-        190,
-
-        "#284b2f"
-
-    );
-
-
-    /* CASA 1 */
-
-    drawRectangle(
-
-        100,
-        175,
-
-        80,
-        65,
-
-        "#7a4935"
-
-    );
-
-
-    /* CASA 2 */
-
-    drawRectangle(
-
-        190,
-        180,
-
-        75,
-        55,
-
-        "#7a4935"
-
-    );
-
-
-    drawText(
-
-        "ALDEA DE LUMEN",
-
-        105,
-        265,
-
-        "#e5e7eb",
-
-        14
-
-    );
-
-
-    /* CURANDERA */
-
-    drawCharacter(
-
-        180,
-        250,
-
-        "#e7c66a"
-
-    );
-
-
-    drawText(
-
-        "Curandera",
-
-        145,
-        280,
-
-        "#ffffff",
-
-        12
-
-    );
-
-
-    /* CRISTAL */
-
-    drawRectangle(
-
-        390,
-        105,
-
-        20,
-        28,
-
-        "#8be9fd"
-
-    );
-
-
-    drawRectangle(
-
-        396,
-        95,
-
-        8,
-        12,
-
-        "#c9f7ff"
-
-    );
-
-
-    drawText(
-
-        "Cristal",
-
-        378,
-        150,
-
-        "#d9faff",
-
-        12
-
-    );
-
-}
-
-
-/* ==========================================================
-   RENDERIZAR JUEGO
-========================================================== */
-
-function render() {
-
-    ctx.clearRect(
-
-        0,
-        0,
-
-        GAME_WIDTH,
-        GAME_HEIGHT
-
-    );
-
-
-    drawMap();
-
-
-    /* ENEMIGOS */
-
-    enemies.forEach(enemy => {
-
-        if (!enemy.alive) {
-
-            return;
-
-        }
-
-
-        drawMonster(
-            enemy
-        );
-
-
-        drawBar(
-
-            enemy.x - 22,
-            enemy.y - 35,
-
-            44,
-
-            enemy.hp /
-            enemy.maxHp,
-
-            "#ef4444"
-
-        );
-
-
-        drawText(
-
-            enemy.name,
-
-            enemy.x - 30,
-            enemy.y + 27,
-
-            "#d1d5db",
-
-            9
-
-        );
-
-    });
-
-
-    /* JUGADOR */
-
-    drawCharacter(
-
-        player.x,
-        player.y,
-
-        "#60a5fa"
-
-    );
-
-
-    drawText(
-
-        "Héroe",
-
-        player.x - 18,
-        player.y - 34,
-
-        "#ffffff",
-
-        12
-
-    );
-
-
-    /* RANGO DE ATAQUE */
-
-    if (
-        attackCooldown > 0
-    ) {
-
-        ctx.beginPath();
-
-        ctx.arc(
-
-            player.x,
-            player.y,
-
-            72,
-
-            0,
-
-            Math.PI * 2
-
-        );
-
-
-        ctx.strokeStyle =
-            "rgba(245,196,81,0.30)";
-
-
-        ctx.stroke();
-
-    }
-
-}
-
-
-/* ==========================================================
-   ACTUALIZAR INTERFAZ
-========================================================== */
-
-function updateInterface() {
-
-    document
-        .getElementById(
-            "levelValue"
-        )
-        .textContent =
-        player.level;
-
-
-    document
-        .getElementById(
-            "damageValue"
-        )
-        .textContent =
-        player.damage;
-
-
-    document
-        .getElementById(
-            "goldValue"
-        )
-        .textContent =
-        player.gold;
-
-
-    document
-        .getElementById(
-            "killsValue"
-        )
-        .textContent =
-        player.kills;
-
-
-    /* HP */
-
-    document
-        .getElementById(
-            "hpText"
-        )
-        .textContent =
-
-        player.hp +
-        " / " +
-        player.maxHp;
-
-
-    document
-        .getElementById(
-            "hpBar"
-        )
-        .style.width =
-
-        (
-            player.hp /
-            player.maxHp *
-            100
-        ) +
-        "%";
-
-
-    /* MANA */
-
-    document
-        .getElementById(
-            "manaText"
-        )
-        .textContent =
-
-        player.mana +
-        " / " +
-        player.maxMana;
-
-
-    document
-        .getElementById(
-            "manaBar"
-        )
-        .style.width =
-
-        (
-            player.mana /
-            player.maxMana *
-            100
-        ) +
-        "%";
-
-
-    /* EXP */
-
-    document
-        .getElementById(
-            "xpText"
-        )
-        .textContent =
-
-        player.xp +
-        " / " +
-        player.nextXp;
-
-
-    document
-        .getElementById(
-            "xpBar"
-        )
-        .style.width =
-
-        (
-            player.xp /
-            player.nextXp *
-            100
-        ) +
-        "%";
-
-
-    /* INVENTARIO */
-
-    document
-        .getElementById(
-            "potionCount"
-        )
-        .textContent =
-        inventory.potion;
-
-
-    document
-        .getElementById(
-            "woodCount"
-        )
-        .textContent =
-        inventory.wood;
-
-
-    document
-        .getElementById(
-            "ironCount"
-        )
-        .textContent =
-        inventory.iron;
-
-
-    document
-        .getElementById(
-            "crystalCount"
-        )
-        .textContent =
-        inventory.crystal;
-
-
-    document
-        .getElementById(
-            "fangCount"
-        )
-        .textContent =
-        inventory.wolfFang;
-
-
-    /* MISIÓN */
-
-    const questProgress =
-        document.getElementById(
-            "questProgress"
-        );
-
-
-    const questDescription =
-        document.getElementById(
-            "questDescription"
-        );
-
-
-    if (
-        quest.completed
-    ) {
-
-        questDescription.innerHTML =
-            "🏆 <strong>Misión completada</strong>";
-
-
-    } else {
-
-        questProgress.textContent =
-
-            quest.progress +
-            " / " +
-            quest.target;
-
-    }
-
-
-    /* CABECERA */
-
-    document
-        .getElementById(
-            "playerMini"
-        )
-        .textContent =
-
-        "Nivel " +
-        player.level +
-        " · " +
-        player.xp +
-        "/" +
-        player.nextXp +
-        " EXP · " +
-        player.hp +
-        "/" +
-        player.maxHp +
-        " HP";
-
-}
-
-
-/* ==========================================================
-   LOOP PRINCIPAL
-========================================================== */
-
-function gameLoop(
-    currentTime
-) {
-
-    const deltaTime =
-
-        Math.min(
-
             (
-                currentTime -
+                time -
                 lastTime
             ) /
             1000,
-
             0.05
-
         );
 
 
-    lastTime =
-        currentTime;
+    lastTime = time;
 
 
-    update(
-        deltaTime
-    );
-
+    update(dt);
 
     render();
 
-
-    updateInterface();
+    updateUI();
 
 
     requestAnimationFrame(
@@ -2422,9 +3085,9 @@ function gameLoop(
 }
 
 
-/* ==========================================================
-   INICIAR JUEGO
-========================================================== */
+/* =========================================================
+   INICIALIZAR
+========================================================= */
 
 const loaded =
     loadGame();
@@ -2433,30 +3096,38 @@ const loaded =
 if (loaded) {
 
     addLog(
-        "💾 Partida V2 cargada."
+        "💾 Partida V3 cargada."
     );
 
 }
+
 else {
 
     addLog(
-        "🌟 Bienvenido a Reinos de Etherial."
+        "🌟 Bienvenido a Reinos de Etherial V3."
     );
 
 
     addLog(
-        "🎯 Derrota 5 enemigos para completar tu primera misión."
+        "📜 Busca a Aldric en Aldea de Lumen."
     );
 
 }
 
 
-updateInterface();
+renderInventory();
+
+renderEquipment();
+
+renderQuest();
+
+updateCamera();
+
+updateZone();
+
+updateUI();
 
 
 requestAnimationFrame(
     gameLoop
 );
-
-
-})();
