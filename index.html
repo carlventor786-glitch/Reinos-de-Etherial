@@ -1,344 +1,532 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  >
+    <meta
+        name="viewport"
+        content="width=device-width,
+        initial-scale=1.0,
+        maximum-scale=1.0,
+        user-scalable=no"
+    >
 
-  <meta name="theme-color" content="#080d16">
+    <meta name="theme-color" content="#080d16">
 
-  <title>Reinos de Etherial - V2</title>
+    <title>Reinos de Etherial V3</title>
 
-  <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <div id="gameShell">
+<div id="gameShell">
 
-    <!-- CABECERA -->
+    <!-- ===============================
+         CABECERA
+    ================================ -->
+
     <header class="topbar">
 
-      <div class="game-title">
-        <h1>⚔ REINOS DE ETHERIAL</h1>
-        <span id="zoneName">Aldea de Lumen</span>
-      </div>
+        <div class="brand">
 
-      <div id="playerMini">
-        Nivel 1 · 0/100 EXP · 100/100 HP
-      </div>
+            <h1>
+                ⚔ REINOS DE ETHERIAL
+            </h1>
+
+            <span class="version">
+                V3
+            </span>
+
+        </div>
+
+        <div id="zoneDisplay">
+            🌲 Bosques de Lumen
+        </div>
+
+        <div id="playerMini">
+            Nv. 1 · ❤️ 100/100 · 💰 50
+        </div>
 
     </header>
 
 
-    <!-- CONTENIDO PRINCIPAL -->
+    <!-- ===============================
+         JUEGO
+    ================================ -->
+
     <main>
 
-      <!-- JUEGO -->
-      <section class="game-container">
+        <section id="gameArea">
 
-        <canvas
-          id="gameCanvas"
-          width="960"
-          height="540"
-        ></canvas>
-
-
-        <!-- CONTROLES MÓVILES -->
-        <div id="mobileControls">
-
-          <div class="mobile-row">
-            <button
-              class="moveButton"
-              data-key="arrowup"
-            >
-              ▲
-            </button>
-          </div>
-
-          <div class="mobile-row">
-
-            <button
-              class="moveButton"
-              data-key="arrowleft"
-            >
-              ◀
-            </button>
-
-            <button
-              class="moveButton"
-              data-key="arrowdown"
-            >
-              ▼
-            </button>
-
-            <button
-              class="moveButton"
-              data-key="arrowright"
-            >
-              ▶
-            </button>
-
-          </div>
-
-        </div>
+            <canvas
+                id="gameCanvas"
+                width="960"
+                height="540">
+            </canvas>
 
 
-        <!-- BOTONES DE ACCIÓN -->
-        <div id="actionButtons">
+            <!-- INFORMACIÓN DEL OBJETIVO -->
 
-          <button id="attackButton">
-            ⚔ ATACAR
-          </button>
+            <div id="targetInfo">
 
-          <button id="potionButton">
-            🧪 POCIÓN
-          </button>
+                <span id="targetName">
+                    Ningún objetivo
+                </span>
 
-        </div>
+                <div class="targetBar">
 
-      </section>
+                    <div
+                        id="targetHpBar">
+                    </div>
 
-
-      <!-- PANEL DERECHO -->
-      <aside id="gamePanel">
-
-
-        <!-- PERSONAJE -->
-        <section class="panel-box">
-
-          <h2>HÉROE</h2>
-
-          <div id="playerStats">
-
-            <div class="stat-row">
-              <span>Nivel</span>
-              <strong id="levelValue">1</strong>
-            </div>
-
-            <div class="stat-row">
-              <span>⚔ Daño</span>
-              <strong id="damageValue">18</strong>
-            </div>
-
-            <div class="stat-row">
-              <span>💰 Oro</span>
-              <strong id="goldValue">50</strong>
-            </div>
-
-            <div class="stat-row">
-              <span>☠ Enemigos</span>
-              <strong id="killsValue">0</strong>
-            </div>
-
-
-            <!-- VIDA -->
-            <div class="resource-title">
-
-              <span>❤️ HP</span>
-
-              <span id="hpText">
-                100 / 100
-              </span>
-
-            </div>
-
-            <div class="resource-bar">
-
-              <div
-                id="hpBar"
-                class="bar-fill hp-bar"
-              ></div>
+                </div>
 
             </div>
 
 
-            <!-- MANA -->
-            <div class="resource-title">
+            <!-- CONTROLES MÓVILES -->
 
-              <span>🔷 Mana</span>
+            <div id="mobileControls">
 
-              <span id="manaText">
-                50 / 50
-              </span>
+                <div class="mobileRow">
 
-            </div>
+                    <button
+                        class="moveButton"
+                        data-key="arrowup">
+                        ▲
+                    </button>
 
-            <div class="resource-bar">
-
-              <div
-                id="manaBar"
-                class="bar-fill mana-bar"
-              ></div>
-
-            </div>
+                </div>
 
 
-            <!-- EXPERIENCIA -->
-            <div class="resource-title">
+                <div class="mobileRow">
 
-              <span>✨ EXP</span>
+                    <button
+                        class="moveButton"
+                        data-key="arrowleft">
+                        ◀
+                    </button>
 
-              <span id="xpText">
-                0 / 100
-              </span>
+                    <button
+                        class="moveButton"
+                        data-key="arrowdown">
+                        ▼
+                    </button>
 
-            </div>
+                    <button
+                        class="moveButton"
+                        data-key="arrowright">
+                        ▶
+                    </button>
 
-            <div class="resource-bar">
-
-              <div
-                id="xpBar"
-                class="bar-fill xp-bar"
-              ></div>
+                </div>
 
             </div>
 
-          </div>
+
+            <!-- ACCIONES -->
+
+            <div id="actionButtons">
+
+                <button id="attackButton">
+                    ⚔ ATACAR
+                </button>
+
+                <button id="interactButton">
+                    💬 INTERACTUAR
+                </button>
+
+                <button id="potionButton">
+                    🧪 POCIÓN
+                </button>
+
+            </div>
 
         </section>
 
 
-        <!-- INVENTARIO -->
-        <section class="panel-box">
+        <!-- ===============================
+             PANEL LATERAL
+        ================================ -->
 
-          <h2>🎒 INVENTARIO</h2>
-
-          <div id="inventory">
-
-            <div class="inventory-item">
-              <span>🧪 Poción</span>
-              <strong id="potionCount">3</strong>
-            </div>
-
-            <div class="inventory-item">
-              <span>🪵 Madera</span>
-              <strong id="woodCount">0</strong>
-            </div>
-
-            <div class="inventory-item">
-              <span>⛓ Hierro</span>
-              <strong id="ironCount">0</strong>
-            </div>
-
-            <div class="inventory-item">
-              <span>💎 Cristal de Etherial</span>
-              <strong id="crystalCount">0</strong>
-            </div>
-
-            <div class="inventory-item">
-              <span>🦷 Colmillo de Lobo</span>
-              <strong id="fangCount">0</strong>
-            </div>
-
-          </div>
-
-        </section>
+        <aside id="sidebar">
 
 
-        <!-- MISIÓN -->
-        <section class="panel-box">
+            <!-- PERSONAJE -->
 
-          <h2>📜 MISIÓN</h2>
+            <section class="panel">
 
-          <div id="questPanel">
-
-            <strong id="questName">
-              Primeros pasos
-            </strong>
-
-            <p id="questDescription">
-              Derrota enemigos:
-              <span id="questProgress">
-                0 / 5
-              </span>
-            </p>
-
-            <small>
-              Recompensa:
-              <strong>100 oro + 80 EXP</strong>
-            </small>
-
-          </div>
-
-        </section>
+                <h2>
+                    🧙 HÉROE
+                </h2>
 
 
-        <!-- REGISTRO -->
-        <section class="panel-box">
+                <div class="stat">
 
-          <h2>📖 REGISTRO</h2>
+                    <span>Nivel</span>
 
-          <div id="gameLog">
+                    <strong id="levelValue">
+                        1
+                    </strong>
 
-            <p>
-              🌟 Bienvenido a Reinos de Etherial.
-            </p>
-
-          </div>
-
-        </section>
+                </div>
 
 
-        <!-- CONTROLES -->
-        <section class="panel-box controls-help">
+                <div class="stat">
 
-          <h2>🎮 CONTROLES</h2>
+                    <span>⚔ Ataque</span>
 
-          <p>
-            <strong>WASD / Flechas</strong>
-            — Mover
-          </p>
+                    <strong id="attackValue">
+                        18
+                    </strong>
 
-          <p>
-            <strong>Espacio</strong>
-            — Atacar
-          </p>
-
-          <p>
-            <strong>E</strong>
-            — Interactuar
-          </p>
-
-          <p>
-            <strong>P</strong>
-            — Usar poción
-          </p>
-
-          <p>
-            <strong>R</strong>
-            — Guardar
-          </p>
-
-        </section>
+                </div>
 
 
-      </aside>
+                <div class="stat">
+
+                    <span>🛡 Defensa</span>
+
+                    <strong id="defenseValue">
+                        5
+                    </strong>
+
+                </div>
+
+
+                <div class="stat">
+
+                    <span>💰 Oro</span>
+
+                    <strong id="goldValue">
+                        50
+                    </strong>
+
+                </div>
+
+
+                <!-- HP -->
+
+                <div class="resourceText">
+
+                    <span>❤️ HP</span>
+
+                    <span id="hpText">
+                        100 / 100
+                    </span>
+
+                </div>
+
+                <div class="resourceBar">
+
+                    <div
+                        id="hpBar"
+                        class="hp">
+                    </div>
+
+                </div>
+
+
+                <!-- MANA -->
+
+                <div class="resourceText">
+
+                    <span>🔷 Mana</span>
+
+                    <span id="manaText">
+                        50 / 50
+                    </span>
+
+                </div>
+
+                <div class="resourceBar">
+
+                    <div
+                        id="manaBar"
+                        class="mana">
+                    </div>
+
+                </div>
+
+
+                <!-- EXP -->
+
+                <div class="resourceText">
+
+                    <span>✨ EXP</span>
+
+                    <span id="xpText">
+                        0 / 100
+                    </span>
+
+                </div>
+
+                <div class="resourceBar">
+
+                    <div
+                        id="xpBar"
+                        class="xp">
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- EQUIPAMIENTO -->
+
+            <section class="panel">
+
+                <h2>
+                    🛡 EQUIPAMIENTO
+                </h2>
+
+                <div id="equipment">
+
+                    <button
+                        class="equipmentSlot"
+                        data-slot="weapon">
+
+                        <span>⚔ Arma</span>
+
+                        <strong id="weaponSlot">
+                            Espada vieja
+                        </strong>
+
+                    </button>
+
+
+                    <button
+                        class="equipmentSlot"
+                        data-slot="armor">
+
+                        <span>🥋 Armadura</span>
+
+                        <strong id="armorSlot">
+                            Ropa de viajero
+                        </strong>
+
+                    </button>
+
+
+                    <button
+                        class="equipmentSlot"
+                        data-slot="helmet">
+
+                        <span>⛑ Casco</span>
+
+                        <strong id="helmetSlot">
+                            Vacío
+                        </strong>
+
+                    </button>
+
+
+                    <button
+                        class="equipmentSlot"
+                        data-slot="boots">
+
+                        <span>🥾 Botas</span>
+
+                        <strong id="bootsSlot">
+                            Vacío
+                        </strong>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- INVENTARIO -->
+
+            <section class="panel">
+
+                <div class="panelTitleRow">
+
+                    <h2>
+                        🎒 INVENTARIO
+                    </h2>
+
+                    <span id="inventorySpace">
+                        0 / 20
+                    </span>
+
+                </div>
+
+                <div id="inventory">
+                </div>
+
+            </section>
+
+
+            <!-- MISIÓN -->
+
+            <section class="panel">
+
+                <h2>
+                    📜 MISIÓN ACTIVA
+                </h2>
+
+                <div id="questPanel">
+
+                    <strong id="questName">
+                        Camino del aventurero
+                    </strong>
+
+                    <p id="questDescription">
+                        Habla con Aldric en
+                        Aldea de Lumen.
+                    </p>
+
+                    <div id="questProgress">
+                        0 / 1
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- REGISTRO -->
+
+            <section class="panel">
+
+                <h2>
+                    📖 REGISTRO
+                </h2>
+
+                <div id="gameLog">
+                </div>
+
+            </section>
+
+        </aside>
 
     </main>
 
 
-    <!-- PIE -->
+    <!-- ===============================
+         VENTANA NPC
+    ================================ -->
+
+    <div
+        id="dialogWindow"
+        class="modal hidden">
+
+        <div class="modalContent">
+
+            <button
+                id="closeDialog"
+                class="closeButton">
+                ×
+            </button>
+
+            <h2 id="dialogName">
+                Aldric
+            </h2>
+
+            <p id="dialogText">
+            </p>
+
+            <div id="dialogActions">
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===============================
+         TIENDA
+    ================================ -->
+
+    <div
+        id="shopWindow"
+        class="modal hidden">
+
+        <div class="modalContent shopContent">
+
+            <button
+                id="closeShop"
+                class="closeButton">
+                ×
+            </button>
+
+            <h2>
+                🏪 Tienda de Lumen
+            </h2>
+
+            <p class="shopGold">
+
+                Tu oro:
+
+                <strong id="shopGold">
+                    0
+                </strong>
+
+            </p>
+
+            <div id="shopItems">
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===============================
+         MENSAJE NIVEL
+    ================================ -->
+
+    <div
+        id="levelUpMessage"
+        class="levelUp hidden">
+
+        ✨ ¡NIVEL AUMENTADO! ✨
+
+    </div>
+
+
+    <!-- ===============================
+         FOOTER
+    ================================ -->
+
     <footer>
 
-      <span>
-        Reinos de Etherial V2 · Progreso guardado automáticamente
-      </span>
+        <span>
+            WASD/Flechas mover ·
+            Espacio atacar ·
+            E interactuar ·
+            P poción
+        </span>
 
-      <button id="resetButton">
-        Reiniciar partida
-      </button>
+        <div>
+
+            <button id="saveButton">
+                💾 Guardar
+            </button>
+
+            <button id="resetButton">
+                Reiniciar
+            </button>
+
+        </div>
 
     </footer>
 
-  </div>
+</div>
 
 
-  <!-- MOTOR DEL JUEGO -->
-  <script src="game.js"></script>
+<!-- ===============================
+     ARCHIVOS V3
+================================ -->
+
+<script src="data.js"></script>
+
+<script src="game.js"></script>
 
 </body>
 </html>
