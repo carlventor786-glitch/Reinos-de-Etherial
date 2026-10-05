@@ -1,7 +1,6 @@
-/* =========================================
-   REINOS DE ETHERIAL V2
-   STYLE.CSS
-========================================= */
+/* ==========================================
+   REINOS DE ETHERIAL V3
+========================================== */
 
 * {
     box-sizing: border-box;
@@ -14,16 +13,11 @@
 }
 
 body {
-    background:
-        radial-gradient(circle at top, #172235 0%, #080d16 55%, #05080d 100%);
-    color: #e5e7eb;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
     min-height: 100vh;
+    background:
+        radial-gradient(circle at top, #172235, #080d16 55%, #03060a);
+    color: #e5e7eb;
+    font-family: Arial, Helvetica, sans-serif;
     overflow-x: hidden;
 }
 
@@ -31,330 +25,346 @@ button {
     font-family: inherit;
 }
 
-
-/* =========================================
-   CONTENEDOR PRINCIPAL
-========================================= */
-
 #gameShell {
     width: 100%;
-    max-width: 1280px;
-
-    margin: 0 auto;
-    padding: 12px;
+    max-width: 1320px;
+    margin: auto;
+    padding: 10px;
 }
 
-
-/* =========================================
-   CABECERA
-========================================= */
+/* ==========================
+   HEADER
+========================== */
 
 .topbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-
     gap: 15px;
 
-    background: #111827;
-
+    background: #101827;
     border: 1px solid #293548;
     border-radius: 12px;
 
-    padding: 12px 16px;
-    margin-bottom: 10px;
+    padding: 11px 15px;
+    margin-bottom: 8px;
 
-    box-shadow:
-        0 8px 30px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 30px #0007;
 }
 
-.game-title {
+.brand {
     display: flex;
     align-items: center;
-    gap: 15px;
-
-    flex-wrap: wrap;
+    gap: 9px;
 }
 
-.game-title h1 {
+.brand h1 {
     color: #f5c451;
-
-    font-size: 19px;
+    font-size: 17px;
     letter-spacing: 1px;
-
-    text-shadow:
-        0 0 12px rgba(245, 196, 81, 0.25);
 }
 
-#zoneName {
-    color: #94a3b8;
-    font-size: 13px;
+.version {
+    background: #7c3aed;
+    color: white;
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+#zoneDisplay {
+    color: #86efac;
+    font-size: 12px;
+    text-align: center;
 }
 
 #playerMini {
-    color: #cbd5e1;
-
-    font-size: 13px;
     text-align: right;
+    color: #cbd5e1;
+    font-size: 11px;
 }
 
-
-/* =========================================
+/* ==========================
    LAYOUT
-========================================= */
+========================== */
 
 main {
     display: grid;
-
-    grid-template-columns:
-        minmax(0, 1fr)
-        280px;
-
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) 285px;
+    gap: 8px;
 }
 
-
-/* =========================================
-   ÁREA DEL JUEGO
-========================================= */
-
-.game-container {
+#gameArea {
     position: relative;
-
-    width: 100%;
     min-width: 0;
 }
 
 #gameCanvas {
     display: block;
-
     width: 100%;
     height: auto;
-
     aspect-ratio: 16 / 9;
 
-    background: #17351f;
+    background: #142e1d;
 
-    border:
-        1px solid
-        #293548;
-
+    border: 1px solid #293548;
     border-radius: 12px;
 
-    box-shadow:
-        0 10px 35px
-        rgba(0, 0, 0, 0.45);
+    box-shadow: 0 10px 35px #0008;
 
     image-rendering: pixelated;
-
     touch-action: none;
 }
 
+/* ==========================
+   TARGET
+========================== */
 
-/* =========================================
-   PANEL DERECHO
-========================================= */
+#targetInfo {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
 
-#gamePanel {
+    min-width: 180px;
+
+    padding: 6px 10px;
+
+    background: #080d16dd;
+    border: 1px solid #334155;
+    border-radius: 8px;
+
+    text-align: center;
+    font-size: 10px;
+
+    pointer-events: none;
+}
+
+.targetBar {
+    width: 100%;
+    height: 5px;
+    margin-top: 5px;
+
+    background: #020617;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+#targetHpBar {
+    width: 0%;
+    height: 100%;
+    background: #ef4444;
+    transition: width .2s;
+}
+
+/* ==========================
+   SIDEBAR
+========================== */
+
+#sidebar {
     background: #0f172a;
-
-    border:
-        1px solid
-        #293548;
-
+    border: 1px solid #293548;
     border-radius: 12px;
 
-    padding: 10px;
+    padding: 8px;
 
     display: flex;
     flex-direction: column;
+    gap: 7px;
 
-    gap: 8px;
-
-    box-shadow:
-        0 8px 30px
-        rgba(0, 0, 0, 0.35);
+    max-height: 540px;
+    overflow-y: auto;
 }
 
-
-/* =========================================
-   CAJAS DEL PANEL
-========================================= */
-
-.panel-box {
+.panel {
     background:
-        linear-gradient(
-            180deg,
-            #111827,
-            #0c1424
-        );
+        linear-gradient(180deg, #111827, #0b1220);
 
-    border:
-        1px solid
-        #263244;
-
+    border: 1px solid #263244;
     border-radius: 9px;
 
-    padding: 10px;
+    padding: 9px;
 }
 
-.panel-box h2 {
+.panel h2 {
     color: #f5c451;
-
-    font-size: 13px;
-
-    margin-bottom: 8px;
-
-    letter-spacing: 0.8px;
-}
-
-
-/* =========================================
-   ESTADÍSTICAS
-========================================= */
-
-.stat-row {
-    display: flex;
-
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 3px 0;
-
-    font-size: 12px;
-}
-
-.stat-row strong {
-    color: #ffffff;
-}
-
-
-/* =========================================
-   BARRAS
-========================================= */
-
-.resource-title {
-    display: flex;
-
-    justify-content: space-between;
-
-    margin-top: 8px;
-    margin-bottom: 4px;
-
     font-size: 11px;
+    letter-spacing: .7px;
+    margin-bottom: 7px;
+}
+
+.panelTitleRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#inventorySpace {
+    color: #64748b;
+    font-size: 9px;
+}
+
+/* ==========================
+   STATS
+========================== */
+
+.stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    font-size: 10px;
+    padding: 2px 0;
+}
+
+.resourceText {
+    display: flex;
+    justify-content: space-between;
 
     color: #cbd5e1;
+    font-size: 9px;
+
+    margin-top: 6px;
+    margin-bottom: 3px;
 }
 
-.resource-bar {
+.resourceBar {
+    height: 7px;
     width: 100%;
-    height: 9px;
 
     background: #020617;
-
-    border-radius: 6px;
-
+    border-radius: 5px;
     overflow: hidden;
-
-    border:
-        1px solid
-        #1f2937;
 }
 
-.bar-fill {
+.resourceBar > div {
     height: 100%;
+    transition: width .2s;
+}
 
+.hp {
+    width: 100%;
+    background: #ef4444;
+}
+
+.mana {
+    width: 100%;
+    background: #38bdf8;
+}
+
+.xp {
+    width: 0%;
+    background: #a78bfa;
+}
+
+/* ==========================
+   EQUIPMENT
+========================== */
+
+#equipment {
+    display: grid;
+    gap: 4px;
+}
+
+.equipmentSlot {
     width: 100%;
 
-    transition:
-        width 0.25s ease;
-}
-
-
-/* VIDA */
-
-.hp-bar {
-    background:
-        linear-gradient(
-            90deg,
-            #991b1b,
-            #ef4444
-        );
-}
-
-
-/* MANA */
-
-.mana-bar {
-    background:
-        linear-gradient(
-            90deg,
-            #0369a1,
-            #38bdf8
-        );
-}
-
-
-/* EXPERIENCIA */
-
-.xp-bar {
-    background:
-        linear-gradient(
-            90deg,
-            #6d28d9,
-            #a78bfa
-        );
-}
-
-
-/* =========================================
-   INVENTARIO
-========================================= */
-
-.inventory-item {
     display: flex;
-
     justify-content: space-between;
-    align-items: center;
+    gap: 7px;
 
-    padding: 4px 0;
+    background: #151e2e;
+    color: #cbd5e1;
 
-    font-size: 11px;
+    border: 1px solid #293548;
+    border-radius: 5px;
 
-    border-bottom:
-        1px solid
-        rgba(255,255,255,0.04);
+    padding: 6px;
+
+    font-size: 9px;
+
+    cursor: pointer;
 }
 
-.inventory-item:last-child {
-    border-bottom: none;
-}
-
-.inventory-item strong {
+.equipmentSlot strong {
     color: #f5c451;
+    font-size: 8px;
 }
 
+.equipmentSlot:hover {
+    background: #1e293b;
+}
 
-/* =========================================
-   MISIÓN
-========================================= */
+/* ==========================
+   INVENTORY
+========================== */
+
+#inventory {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.inventoryItem {
+    min-height: 38px;
+
+    background: #151e2e;
+    border: 1px solid #293548;
+    border-radius: 5px;
+
+    padding: 5px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    font-size: 8px;
+
+    cursor: pointer;
+}
+
+.inventoryItem:hover {
+    border-color: #64748b;
+}
+
+.inventoryItem .quantity {
+    color: #f5c451;
+    font-weight: bold;
+}
+
+.inventoryItem.weapon {
+    border-color: #7c3aed;
+}
+
+.inventoryItem.armor {
+    border-color: #2563eb;
+}
+
+.inventoryItem.consumable {
+    border-color: #16a34a;
+}
+
+.inventoryItem.material {
+    border-color: #92400e;
+}
+
+/* ==========================
+   QUEST
+========================== */
 
 #questPanel {
-    font-size: 11px;
-
+    font-size: 9px;
     line-height: 1.5;
 }
 
-#questPanel > strong {
-    color: #ffffff;
+#questName {
+    color: white;
 }
 
-#questPanel p {
-    margin-top: 4px;
-}
-
-#questPanel small {
+#questDescription {
     color: #94a3b8;
+    margin: 4px 0;
 }
 
 #questProgress {
@@ -362,106 +372,63 @@ main {
     font-weight: bold;
 }
 
-
-/* =========================================
-   REGISTRO DEL JUEGO
-========================================= */
+/* ==========================
+   LOG
+========================== */
 
 #gameLog {
-    max-height: 130px;
-
+    max-height: 90px;
     overflow-y: auto;
 
-    font-size: 10px;
-
-    line-height: 1.4;
+    font-size: 8px;
+    line-height: 1.45;
 }
 
 #gameLog p {
-    padding: 3px 0;
-
-    border-bottom:
-        1px solid
-        rgba(255,255,255,0.04);
+    padding: 2px 0;
+    border-bottom: 1px solid #ffffff0a;
 }
 
-
-/* =========================================
-   CONTROLES AYUDA
-========================================= */
-
-.controls-help p {
-    color: #94a3b8;
-
-    font-size: 10px;
-
-    margin: 3px 0;
-}
-
-.controls-help strong {
-    color: #e5e7eb;
-}
-
-
-/* =========================================
-   BOTONES DE ACCIÓN
-========================================= */
+/* ==========================
+   ACTION BUTTONS
+========================== */
 
 #actionButtons {
     position: absolute;
 
-    right: 12px;
-    bottom: 12px;
+    right: 10px;
+    bottom: 10px;
 
     display: flex;
-
-    gap: 7px;
+    gap: 5px;
 }
 
 #actionButtons button {
-    color: #ffffff;
+    padding: 9px 10px;
 
-    border:
-        1px solid
-        rgba(255,255,255,0.15);
+    border: 1px solid #ffffff22;
+    border-radius: 7px;
 
-    border-radius: 9px;
+    color: white;
 
-    padding:
-        10px
-        13px;
-
-    font-size: 11px;
-
+    font-size: 9px;
     font-weight: bold;
 
     cursor: pointer;
 
-    box-shadow:
-        0 4px 15px
-        rgba(0,0,0,0.5);
-
-    transition:
-        transform 0.1s,
-        filter 0.1s;
+    box-shadow: 0 4px 15px #0008;
 }
 
 #attackButton {
-    background:
-        linear-gradient(
-            180deg,
-            #991b1b,
-            #6f1d2b
-        );
+    background: #8b1e2d;
+}
+
+#interactButton {
+    background: #1d4f72;
 }
 
 #potionButton {
-    background:
-        linear-gradient(
-            180deg,
-            #166534,
-            #14532d
-        );
+    background: #166534;
 }
 
 #actionButtons button:hover {
@@ -469,118 +436,278 @@ main {
 }
 
 #actionButtons button:active {
-    transform: scale(0.95);
+    transform: scale(.95);
 }
 
-
-/* =========================================
-   CONTROLES MÓVILES
-========================================= */
+/* ==========================
+   MOBILE MOVEMENT
+========================== */
 
 #mobileControls {
     display: none;
 
     position: absolute;
-
-    left: 12px;
-    bottom: 12px;
+    left: 10px;
+    bottom: 10px;
 
     user-select: none;
 }
 
-.mobile-row {
+.mobileRow {
     display: flex;
-
     justify-content: center;
 }
 
 .moveButton {
-    width: 43px;
-    height: 43px;
+    width: 40px;
+    height: 40px;
 
     margin: 2px;
 
+    background: #172033dd;
     color: white;
 
-    background:
-        rgba(
-            23,
-            32,
-            51,
-            0.9
-        );
-
-    border:
-        1px solid
-        #475569;
-
-    border-radius: 9px;
-
-    font-size: 17px;
+    border: 1px solid #475569;
+    border-radius: 8px;
 
     cursor: pointer;
-
-    box-shadow:
-        0 3px 12px
-        rgba(0,0,0,0.5);
 }
 
 .moveButton:active {
     background: #334155;
-
-    transform:
-        scale(0.94);
+    transform: scale(.94);
 }
 
+/* ==========================
+   MODALS
+========================== */
 
-/* =========================================
+.modal {
+    position: fixed;
+    inset: 0;
+
+    background: #000a;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 15px;
+
+    z-index: 100;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modalContent {
+    position: relative;
+
+    width: 100%;
+    max-width: 440px;
+
+    background:
+        linear-gradient(180deg, #172033, #0c1424);
+
+    border: 1px solid #475569;
+    border-radius: 12px;
+
+    padding: 20px;
+
+    box-shadow: 0 15px 50px #000;
+}
+
+.modalContent h2 {
+    color: #f5c451;
+    margin-bottom: 12px;
+    font-size: 18px;
+}
+
+.modalContent p {
+    color: #cbd5e1;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.closeButton {
+    position: absolute;
+    right: 9px;
+    top: 7px;
+
+    width: 28px;
+    height: 28px;
+
+    background: #7f1d1d;
+    color: white;
+
+    border: 0;
+    border-radius: 6px;
+
+    cursor: pointer;
+}
+
+#dialogActions {
+    margin-top: 15px;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+#dialogActions button,
+.shopButton {
+    background: #1d4f72;
+    color: white;
+
+    border: 1px solid #ffffff22;
+    border-radius: 6px;
+
+    padding: 8px 11px;
+
+    cursor: pointer;
+}
+
+#dialogActions button:hover,
+.shopButton:hover {
+    filter: brightness(1.15);
+}
+
+/* ==========================
+   SHOP
+========================== */
+
+.shopGold {
+    margin-bottom: 12px;
+}
+
+#shopGold {
+    color: #f5c451;
+}
+
+#shopItems {
+    display: grid;
+    gap: 7px;
+}
+
+.shopItem {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+
+    align-items: center;
+
+    background: #101827;
+
+    border: 1px solid #293548;
+    border-radius: 7px;
+
+    padding: 9px;
+}
+
+.shopItemName {
+    font-size: 11px;
+    color: white;
+}
+
+.shopItemDescription {
+    color: #94a3b8;
+    font-size: 9px;
+    margin-top: 3px;
+}
+
+.shopPrice {
+    color: #f5c451;
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+/* ==========================
+   LEVEL UP
+========================== */
+
+.levelUp {
+    position: fixed;
+
+    left: 50%;
+    top: 20%;
+
+    transform: translateX(-50%);
+
+    z-index: 200;
+
+    background: #4c1d95ee;
+    color: #fef3c7;
+
+    border: 1px solid #a78bfa;
+    border-radius: 10px;
+
+    padding: 14px 22px;
+
+    font-weight: bold;
+    font-size: 17px;
+
+    box-shadow: 0 5px 30px #000;
+
+    pointer-events: none;
+
+    animation: levelAnimation .4s ease;
+}
+
+@keyframes levelAnimation {
+
+    from {
+        transform:
+            translateX(-50%)
+            scale(.5);
+
+        opacity: 0;
+    }
+
+    to {
+        transform:
+            translateX(-50%)
+            scale(1);
+
+        opacity: 1;
+    }
+}
+
+/* ==========================
    FOOTER
-========================================= */
+========================== */
 
 footer {
     display: flex;
-
     justify-content: space-between;
     align-items: center;
 
     gap: 10px;
 
-    margin-top: 10px;
+    margin-top: 8px;
 
     color: #64748b;
-
-    font-size: 10px;
+    font-size: 9px;
 }
 
-#resetButton {
+footer button {
     background: #172033;
-
     color: #cbd5e1;
 
-    border:
-        1px solid
-        #334155;
+    border: 1px solid #334155;
+    border-radius: 6px;
 
-    border-radius: 7px;
-
-    padding:
-        6px
-        10px;
+    padding: 6px 9px;
 
     cursor: pointer;
 }
 
-#resetButton:hover {
-    background: #243147;
-}
-
-
-/* =========================================
+/* ==========================
    SCROLLBAR
-========================================= */
+========================== */
 
 ::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -589,38 +716,24 @@ footer {
 
 ::-webkit-scrollbar-thumb {
     background: #334155;
-
     border-radius: 10px;
 }
 
+/* ==========================
+   TABLET
+========================== */
 
-/* =========================================
-   TABLETS
-========================================= */
-
-@media
-(max-width: 900px) {
-
-    #gameShell {
-        padding: 7px;
-    }
+@media (max-width: 900px) {
 
     main {
-        grid-template-columns:
-            1fr;
+        grid-template-columns: 1fr;
     }
 
-    #gamePanel {
+    #sidebar {
+        max-height: none;
+
         display: grid;
-
-        grid-template-columns:
-            1fr
-            1fr;
-    }
-
-    .controls-help {
-        grid-column:
-            1 / -1;
+        grid-template-columns: 1fr 1fr;
     }
 
     #mobileControls {
@@ -629,110 +742,27 @@ footer {
 
 }
 
+/* ==========================
+   MOBILE
+========================== */
 
-/* =========================================
-   TELÉFONOS
-========================================= */
-
-@media
-(max-width: 600px) {
+@media (max-width: 600px) {
 
     #gameShell {
         padding: 4px;
     }
 
     .topbar {
-        padding:
-            8px
-            9px;
+        grid-template-columns: 1fr auto;
 
-        margin-bottom: 5px;
+        padding: 8px;
     }
 
-    .game-title {
-        gap: 6px;
+    .brand h1 {
+        font-size: 11px;
     }
 
-    .game-title h1 {
-        font-size: 12px;
-    }
-
-    #zoneName {
-        font-size: 9px;
-    }
-
-    #playerMini {
-        font-size: 9px;
-    }
-
-
-    #gameCanvas {
-        border-radius: 8px;
-    }
-
-
-    #gamePanel {
-        grid-template-columns:
-            1fr;
-    }
-
-    .controls-help {
-        grid-column: auto;
-    }
-
-
-    #actionButtons {
-        right: 7px;
-        bottom: 7px;
-
-        flex-direction: column;
-    }
-
-    #actionButtons button {
-        padding:
-            8px
-            9px;
-
-        font-size: 9px;
-    }
-
-
-    #mobileControls {
-        left: 7px;
-        bottom: 7px;
-    }
-
-    .moveButton {
-        width: 38px;
-        height: 38px;
-
-        font-size: 14px;
-    }
-
-
-    footer {
-        font-size: 8px;
-    }
-
-    #resetButton {
-        font-size: 8px;
-    }
-
-}
-
-
-/* =========================================
-   TELÉFONOS MUY PEQUEÑOS
-========================================= */
-
-@media
-(max-width: 400px) {
-
-    .game-title h1 {
-        font-size: 10px;
-    }
-
-    #zoneName {
+    #zoneDisplay {
         display: none;
     }
 
@@ -740,19 +770,65 @@ footer {
         font-size: 8px;
     }
 
+    #sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    #targetInfo {
+        top: 5px;
+        min-width: 130px;
+        font-size: 8px;
+    }
+
+    #actionButtons {
+        right: 6px;
+        bottom: 6px;
+
+        flex-direction: column;
+    }
+
+    #actionButtons button {
+        padding: 6px 7px;
+        font-size: 7px;
+    }
+
+    #mobileControls {
+        left: 6px;
+        bottom: 6px;
+    }
 
     .moveButton {
         width: 34px;
         height: 34px;
     }
 
+    footer {
+        font-size: 7px;
+    }
 
-    #actionButtons button {
-        padding:
-            6px
-            7px;
+}
 
-        font-size: 8px;
+/* ==========================
+   VERY SMALL MOBILE
+========================== */
+
+@media (max-width: 400px) {
+
+    .brand h1 {
+        font-size: 9px;
+    }
+
+    .version {
+        font-size: 7px;
+    }
+
+    #playerMini {
+        font-size: 7px;
+    }
+
+    .moveButton {
+        width: 31px;
+        height: 31px;
     }
 
 }
