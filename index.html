@@ -1,28 +1,344 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reinos de Etheria</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
+  <meta name="theme-color" content="#080d16">
+
+  <title>Reinos de Etherial - V2</title>
+
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<div id="gameShell">
-  <header>
-    <div><b>⚔ REINOS DE ETHERIA</b><span id="zone">Aldea de Lumen</span></div>
-    <div id="playerMini">Nivel 1 · 0 EXP · 100 HP</div>
-  </header>
-  <main>
-    <canvas id="game" width="960" height="540"></canvas>
-    <aside>
-      <section><h3>Héroe</h3><div id="stats"></div></section>
-      <section><h3>Inventario</h3><div id="inventory"></div></section>
-      <section><h3>Registro</h3><div id="log"></div></section>
-      <section><h3>Controles</h3><small>WASD/flechas mover · Espacio atacar · E interactuar · I inventario</small></section>
-    </aside>
-  </main>
-  <footer>V1 local · Economía real y multiplayer se añadirán después de validar el núcleo del juego.</footer>
-</div>
-<script src="game.js"></script>
+
+  <div id="gameShell">
+
+    <!-- CABECERA -->
+    <header class="topbar">
+
+      <div class="game-title">
+        <h1>⚔ REINOS DE ETHERIAL</h1>
+        <span id="zoneName">Aldea de Lumen</span>
+      </div>
+
+      <div id="playerMini">
+        Nivel 1 · 0/100 EXP · 100/100 HP
+      </div>
+
+    </header>
+
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main>
+
+      <!-- JUEGO -->
+      <section class="game-container">
+
+        <canvas
+          id="gameCanvas"
+          width="960"
+          height="540"
+        ></canvas>
+
+
+        <!-- CONTROLES MÓVILES -->
+        <div id="mobileControls">
+
+          <div class="mobile-row">
+            <button
+              class="moveButton"
+              data-key="arrowup"
+            >
+              ▲
+            </button>
+          </div>
+
+          <div class="mobile-row">
+
+            <button
+              class="moveButton"
+              data-key="arrowleft"
+            >
+              ◀
+            </button>
+
+            <button
+              class="moveButton"
+              data-key="arrowdown"
+            >
+              ▼
+            </button>
+
+            <button
+              class="moveButton"
+              data-key="arrowright"
+            >
+              ▶
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- BOTONES DE ACCIÓN -->
+        <div id="actionButtons">
+
+          <button id="attackButton">
+            ⚔ ATACAR
+          </button>
+
+          <button id="potionButton">
+            🧪 POCIÓN
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- PANEL DERECHO -->
+      <aside id="gamePanel">
+
+
+        <!-- PERSONAJE -->
+        <section class="panel-box">
+
+          <h2>HÉROE</h2>
+
+          <div id="playerStats">
+
+            <div class="stat-row">
+              <span>Nivel</span>
+              <strong id="levelValue">1</strong>
+            </div>
+
+            <div class="stat-row">
+              <span>⚔ Daño</span>
+              <strong id="damageValue">18</strong>
+            </div>
+
+            <div class="stat-row">
+              <span>💰 Oro</span>
+              <strong id="goldValue">50</strong>
+            </div>
+
+            <div class="stat-row">
+              <span>☠ Enemigos</span>
+              <strong id="killsValue">0</strong>
+            </div>
+
+
+            <!-- VIDA -->
+            <div class="resource-title">
+
+              <span>❤️ HP</span>
+
+              <span id="hpText">
+                100 / 100
+              </span>
+
+            </div>
+
+            <div class="resource-bar">
+
+              <div
+                id="hpBar"
+                class="bar-fill hp-bar"
+              ></div>
+
+            </div>
+
+
+            <!-- MANA -->
+            <div class="resource-title">
+
+              <span>🔷 Mana</span>
+
+              <span id="manaText">
+                50 / 50
+              </span>
+
+            </div>
+
+            <div class="resource-bar">
+
+              <div
+                id="manaBar"
+                class="bar-fill mana-bar"
+              ></div>
+
+            </div>
+
+
+            <!-- EXPERIENCIA -->
+            <div class="resource-title">
+
+              <span>✨ EXP</span>
+
+              <span id="xpText">
+                0 / 100
+              </span>
+
+            </div>
+
+            <div class="resource-bar">
+
+              <div
+                id="xpBar"
+                class="bar-fill xp-bar"
+              ></div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- INVENTARIO -->
+        <section class="panel-box">
+
+          <h2>🎒 INVENTARIO</h2>
+
+          <div id="inventory">
+
+            <div class="inventory-item">
+              <span>🧪 Poción</span>
+              <strong id="potionCount">3</strong>
+            </div>
+
+            <div class="inventory-item">
+              <span>🪵 Madera</span>
+              <strong id="woodCount">0</strong>
+            </div>
+
+            <div class="inventory-item">
+              <span>⛓ Hierro</span>
+              <strong id="ironCount">0</strong>
+            </div>
+
+            <div class="inventory-item">
+              <span>💎 Cristal de Etherial</span>
+              <strong id="crystalCount">0</strong>
+            </div>
+
+            <div class="inventory-item">
+              <span>🦷 Colmillo de Lobo</span>
+              <strong id="fangCount">0</strong>
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- MISIÓN -->
+        <section class="panel-box">
+
+          <h2>📜 MISIÓN</h2>
+
+          <div id="questPanel">
+
+            <strong id="questName">
+              Primeros pasos
+            </strong>
+
+            <p id="questDescription">
+              Derrota enemigos:
+              <span id="questProgress">
+                0 / 5
+              </span>
+            </p>
+
+            <small>
+              Recompensa:
+              <strong>100 oro + 80 EXP</strong>
+            </small>
+
+          </div>
+
+        </section>
+
+
+        <!-- REGISTRO -->
+        <section class="panel-box">
+
+          <h2>📖 REGISTRO</h2>
+
+          <div id="gameLog">
+
+            <p>
+              🌟 Bienvenido a Reinos de Etherial.
+            </p>
+
+          </div>
+
+        </section>
+
+
+        <!-- CONTROLES -->
+        <section class="panel-box controls-help">
+
+          <h2>🎮 CONTROLES</h2>
+
+          <p>
+            <strong>WASD / Flechas</strong>
+            — Mover
+          </p>
+
+          <p>
+            <strong>Espacio</strong>
+            — Atacar
+          </p>
+
+          <p>
+            <strong>E</strong>
+            — Interactuar
+          </p>
+
+          <p>
+            <strong>P</strong>
+            — Usar poción
+          </p>
+
+          <p>
+            <strong>R</strong>
+            — Guardar
+          </p>
+
+        </section>
+
+
+      </aside>
+
+    </main>
+
+
+    <!-- PIE -->
+    <footer>
+
+      <span>
+        Reinos de Etherial V2 · Progreso guardado automáticamente
+      </span>
+
+      <button id="resetButton">
+        Reiniciar partida
+      </button>
+
+    </footer>
+
+  </div>
+
+
+  <!-- MOTOR DEL JUEGO -->
+  <script src="game.js"></script>
+
 </body>
 </html>
