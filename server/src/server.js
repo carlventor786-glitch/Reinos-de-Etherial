@@ -390,7 +390,106 @@ app.post("/auth/register", async (req, res) => {
     }
 
 });
+// ==========================================
+// LOGIN DE USUARIO
+// ==========================================
 
+app.post("/auth/login", async (req, res) => {
+    try {
+        let { username, password } = req.body;
+
+        if (
+            typeof username !== "string" ||
+            typeof password !== "string"
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Usuario y contraseña son obligatorios."
+            });
+        }
+
+        username = username.trim().toLowerCase();
+
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                username,
+                password_hash
+            FROM users
+            WHERE username = $1
+            `,
+            [username]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({
+                success: false,
+                message: "Usuario o contraseña incorrectos."
+            });
+        }
+
+        const user = result.rows[0];
+
+        const passwordCorrect = await bcrypt.compare(
+            password,
+            user.password_hash
+        );
+
+        if (!passwordCorrect) {
+            return res.status(401).json({
+                success: false,
+                message: "Usuario o contraseña incorrectos."
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                userId: user.id,
+                username: user.username
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "2h"
+            }
+        );
+
+        const characterResult = await pool.query(
+            `
+            SELECT *
+            FROM characters
+            WHERE user_id = $1
+            `,
+            [user.id]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Sesión iniciada correctamente.",
+
+            token,
+
+            user: {
+                id: user.id,
+                username: user.username
+            },
+
+            character:
+                characterResult.rows[0] || null
+        });
+
+    } catch (error) {
+        console.error(
+            "[LOGIN ERROR]",
+            error.message
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "No se pudo iniciar sesión."
+        });
+    }
+});
 // ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
