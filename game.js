@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.3
+   REINOS DE ETHERIAL V4.3.1
    GAME.JS
 ========================================================= */
 
@@ -17,7 +17,7 @@ ctx.imageSmoothingEnabled = false;
 const VIEW_WIDTH = canvas.width;
 const VIEW_HEIGHT = canvas.height;
 
-const SAVE_KEY = "reinos_etherial_v4_3_save";
+const SAVE_KEY = "reinos_etherial_v4_3_1_save";
 
 
 /* =========================================================
@@ -435,7 +435,7 @@ async function loadInventoryAndEquipmentFromServer() {
         return true;
     } catch (error) {
         console.error(
-            "[V4.3 INVENTORY LOAD]",
+            "[V4.3.1 INVENTORY LOAD]",
             error
         );
 
@@ -460,7 +460,7 @@ async function refreshInventoryFromServer() {
         }
     } catch (error) {
         console.error(
-            "[V4.3 INVENTORY REFRESH]",
+            "[V4.3.1 INVENTORY REFRESH]",
             error
         );
     }
@@ -1083,7 +1083,12 @@ async function equipItem(itemId) {
             );
         }
 
-        applyServerEquipment(result.equipment);
+        applyServerEquipment(
+            result.equipment
+        );
+
+        // PostgreSQL es la fuente oficial.
+        await refreshInventoryFromServer();
 
         addLog(
             "⚔ Equipaste " +
@@ -1092,9 +1097,10 @@ async function equipItem(itemId) {
         );
 
         updateUI();
+
     } catch (error) {
         console.error(
-            "[V4.3 EQUIP ITEM]",
+            "[V4.3.1 EQUIP ITEM]",
             error
         );
 
@@ -1102,6 +1108,81 @@ async function equipItem(itemId) {
             "⚠ No se pudo equipar " +
             item.name +
             "."
+        );
+    }
+}
+
+
+async function unequipItem(slot) {
+
+    const validEquipment = [
+        "weapon",
+        "armor",
+        "helmet",
+        "boots"
+    ];
+
+    if (!validEquipment.includes(slot)) {
+        return;
+    }
+
+    const itemId =
+        equipment[slot];
+
+    if (!itemId) {
+        addLog("🎒 Esa ranura ya está vacía.");
+        return;
+    }
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.unequipItem !== "function"
+    ) {
+        addLog(
+            "⚠ Desequipamiento del servidor no disponible."
+        );
+        return;
+    }
+
+    try {
+        const result =
+            await EtherialAPI.unequipItem(slot);
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.equipment
+        ) {
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+        }
+
+        applyServerEquipment(
+            result.equipment
+        );
+
+        await refreshInventoryFromServer();
+
+        const item =
+            ITEMS[itemId];
+
+        addLog(
+            "🛡 Desequipaste " +
+            (item ? item.name : itemId) +
+            "."
+        );
+
+        updateUI();
+
+    } catch (error) {
+        console.error(
+            "[V4.3.1 UNEQUIP ITEM]",
+            error
+        );
+
+        addLog(
+            "⚠ No se pudo desequipar el objeto."
         );
     }
 }
@@ -3227,19 +3308,14 @@ function renderInventory() {
 function renderEquipment() {
 
     const slots = {
-
         weapon:
             "weaponSlot",
-
         armor:
             "armorSlot",
-
         helmet:
             "helmetSlot",
-
         boots:
             "bootsSlot"
-
     };
 
 
@@ -3250,20 +3326,41 @@ function renderEquipment() {
                 const itemId =
                     equipment[slot];
 
-
-                document
-                    .getElementById(
+                const element =
+                    document.getElementById(
                         elementId
-                    )
-                    .textContent =
+                    );
 
+                if (!element) {
+                    return;
+                }
+
+                const item =
                     itemId
-                    ? ITEMS[itemId].name
-                    : "Vacío";
+                        ? ITEMS[itemId]
+                        : null;
 
+                element.textContent =
+                    item
+                        ? item.name + " · clic para quitar"
+                        : "Vacío";
+
+                element.onclick =
+                    itemId
+                        ? () => unequipItem(slot)
+                        : null;
+
+                element.style.cursor =
+                    itemId
+                        ? "pointer"
+                        : "default";
+
+                element.title =
+                    itemId
+                        ? "Clic para desequipar"
+                        : "";
             }
         );
-
 }
 
 
