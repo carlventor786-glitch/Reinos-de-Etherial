@@ -1108,6 +1108,330 @@ app.put(
     }
 );
 
+// ==========================================
+// V4.2 - RECOMPENSA SEGURA POR ENEMIGO
+// ==========================================
+
+const SERVER_ENEMIES = {
+
+    slime: {
+        xp: 12,
+        goldMin: 2,
+        goldMax: 5
+    },
+
+    wolf: {
+        xp: 20,
+        goldMin: 4,
+        goldMax: 8
+    },
+
+    goblin: {
+        xp: 28,
+        goldMin: 6,
+        goldMax: 12
+    },
+
+    skeleton: {
+        xp: 40,
+        goldMin: 8,
+        goldMax: 16
+    }
+
+};
+
+
+// ==========================================
+// CALCULAR XP NECESARIA
+// ==========================================
+
+function getRequiredXpForLevel(level) {
+
+    let requiredXp = 100;
+
+    for (
+        let currentLevel = 1;
+        currentLevel < level;
+        currentLevel++
+    ) {
+
+        requiredXp =
+            Math.floor(
+                requiredXp * 1.35
+            );
+
+    }
+
+    return requiredXp;
+}
+
+
+// ==========================================
+// REGISTRAR ENEMIGO DERROTADO
+// ==========================================
+
+app.post(
+    "/game/enemy-killed",
+    authenticateToken,
+    async (req, res) => {
+
+        const client =
+            await pool.connect();
+
+        try {
+
+            const {
+                enemyType
+            } = req.body;
+
+
+            // ----------------------------------
+            // VALIDAR ENEMIGO
+            // ----------------------------------
+
+            if (
+                typeof enemyType !== "string" ||
+                !SERVER_ENEMIES[enemyType]
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Enemigo inválido."
+                    });
+
+            }
+
+
+            const enemy =
+                SERVER_ENEMIES[enemyType];
+
+
+            await client.query(
+                "BEGIN"
+            );
+
+
+            // ----------------------------------
+            // BLOQUEAR PERSONAJE
+            // ----------------------------------
+
+            const result =
+                await client.query(
+                    `
+                        SELECT
+                            id,
+                            level,
+                            xp,
+                            gold
+
+                        FROM characters
+
+                        WHERE user_id = $1
+
+                        FOR UPDATE
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            if (
+                result.rows.length === 0
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
+
+            }
+
+
+            const character =
+                result.rows[0];
+
+
+            // ----------------------------------
+            // RECOMPENSA GENERADA EN SERVIDOR
+            // ----------------------------------
+
+            const goldEarned =
+                Math.floor(
+                    Math.random() *
+                    (
+                        enemy.goldMax -
+                        enemy.goldMin +
+                        1
+                    )
+                ) +
+                enemy.goldMin;
+
+
+            let newLevel =
+                Number(character.level);
+
+            let newXp =
+                Number(character.xp) +
+                enemy.xp;
+
+            let newGold =
+                Number(character.gold) +
+                goldEarned;
+
+
+            let levelsGained = 0;
+
+
+            // ----------------------------------
+            // SUBIR NIVEL
+            // ----------------------------------
+
+            let requiredXp =
+                getRequiredXpForLevel(
+                    newLevel
+                );
+
+
+            while (
+                newXp >= requiredXp
+            ) {
+
+                newXp -=
+                    requiredXp;
+
+                newLevel++;
+
+                levelsGained++;
+
+                requiredXp =
+                    getRequiredXpForLevel(
+                        newLevel
+                    );
+
+            }
+
+
+            // ----------------------------------
+            // ACTUALIZAR POSTGRESQL
+            // ----------------------------------
+
+            const updateResult =
+                await client.query(
+                    `
+                        UPDATE characters
+
+                        SET
+                            level = $1,
+                            xp = $2,
+                            gold = $3,
+                            updated_at = NOW()
+
+                        WHERE user_id = $4
+
+                        RETURNING
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            updated_at
+                    `,
+                    [
+                        newLevel,
+                        newXp,
+                        newGold,
+                        req.user.userId
+                    ]
+                );
+
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    reward: {
+                        xp:
+                            enemy.xp,
+
+                        gold:
+                            goldEarned,
+
+                        levelsGained
+                    },
+
+                    character:
+                        updateResult.rows[0]
+
+                });
+
+
+        } catch (error) {
+
+            try {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+            } catch (
+                rollbackError
+            ) {
+
+                console.error(
+                    "[V4.2 ROLLBACK ERROR]",
+                    rollbackError.message
+                );
+
+            }
+
+
+            console.error(
+                "[V4.2 ENEMY KILL ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo procesar la recompensa."
+                });
+
+
+        } finally {
+
+            client.release();
+
+        }
+
+    }
+);
 
 // ==========================================
 // RUTA NO ENCONTRADA - 404
