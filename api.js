@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.4
+   REINOS DE ETHERIAL V5.0
    API.JS
 
    Capa de comunicación:
@@ -884,6 +884,43 @@ const EtherialAPI = (() => {
 
 
     /* =====================================================
+       V5.0
+       CONSUMIBLES Y MUERTE EN SERVIDOR
+    ===================================================== */
+
+    async function useItem(itemId) {
+
+        if (
+            typeof itemId !== "string" ||
+            itemId.length === 0
+        ) {
+            throw new Error("INVALID_ITEM_ID");
+        }
+
+        return await request(
+            "/game/use-item",
+            {
+                method: "POST",
+                body: JSON.stringify({ itemId })
+            }
+        );
+    }
+
+
+    async function playerDied() {
+
+        return await request(
+            "/game/player-died",
+            {
+                method: "POST",
+                body: JSON.stringify({})
+            }
+        );
+    }
+
+
+
+    /* =====================================================
        PERFIL
     ===================================================== */
 
@@ -997,6 +1034,10 @@ const EtherialAPI = (() => {
         getShop,
 
         buyItem,
+
+        useItem,
+
+        playerDied,
 
         getProfile,
 
