@@ -16,6 +16,7 @@ const GAME_ORIGIN =
     process.env.GAME_ORIGIN ||
     "https://carlventor786-glitch.github.io";
 
+
 // ==========================================
 // BASE DE DATOS POSTGRESQL / NEON
 // ==========================================
@@ -27,25 +28,35 @@ const pool = new Pool({
     }
 });
 
+
 // ==========================================
 // MIDDLEWARE
 // ==========================================
 
-app.use(cors({
-    origin: GAME_ORIGIN,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use(
+    cors({
+        origin: GAME_ORIGIN,
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization"
+        ]
+    })
+);
 
-app.use(express.json({
-    limit: "100kb"
-}));
+app.use(
+    express.json({
+        limit: "100kb"
+    })
+);
+
 
 // ==========================================
 // INICIALIZAR BASE DE DATOS
 // ==========================================
 
 async function initializeDatabase() {
+
     try {
 
         await pool.query(`
@@ -56,6 +67,7 @@ async function initializeDatabase() {
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
+
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
@@ -82,9 +94,18 @@ async function initializeDatabase() {
             );
         `);
 
-        console.log("✅ Base de datos inicializada.");
-        console.log("✅ Tabla users lista.");
-        console.log("✅ Tabla characters lista.");
+
+        console.log(
+            "✅ Base de datos inicializada."
+        );
+
+        console.log(
+            "✅ Tabla users lista."
+        );
+
+        console.log(
+            "✅ Tabla characters lista."
+        );
 
     } catch (error) {
 
@@ -92,443 +113,625 @@ async function initializeDatabase() {
             "❌ Error inicializando base de datos:",
             error.message
         );
+
     }
 }
+
 
 // ==========================================
 // RUTA PRINCIPAL
 // ==========================================
 
-app.get("/", (req, res) => {
+app.get(
+    "/",
+    (req, res) => {
 
-    res.json({
-        game: "Reinos de Etherial",
-        server: "Etherial Backend",
-        version: "4.0.0",
-        status: "online"
-    });
+        res.json({
+            game: "Reinos de Etherial",
+            server: "Etherial Backend",
+            version: "4.0.0",
+            status: "online"
+        });
 
-});
+    }
+);
+
 
 // ==========================================
 // HEALTH CHECK + DATABASE
 // ==========================================
 
-app.get("/health", async (req, res) => {
+app.get(
+    "/health",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const result = await pool.query(
-            "SELECT NOW() AS database_time"
-        );
+            const result =
+                await pool.query(
+                    "SELECT NOW() AS database_time"
+                );
 
-        res.status(200).json({
-            success: true,
-            game: "Reinos de Etherial",
-            version: "4.0.0",
-            server: "online",
-            database: "connected",
-            databaseTime:
-                result.rows[0].database_time
-        });
 
-    } catch (error) {
+            res.status(200).json({
 
-        console.error(
-            "[DATABASE ERROR]",
-            error.message
-        );
+                success: true,
 
-        res.status(500).json({
-            success: false,
-            game: "Reinos de Etherial",
-            server: "online",
-            database: "disconnected"
-        });
+                game:
+                    "Reinos de Etherial",
+
+                version:
+                    "4.0.0",
+
+                server:
+                    "online",
+
+                database:
+                    "connected",
+
+                databaseTime:
+                    result.rows[0].database_time
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "[DATABASE ERROR]",
+                error.message
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                game:
+                    "Reinos de Etherial",
+
+                server:
+                    "online",
+
+                database:
+                    "disconnected"
+
+            });
+
+        }
+
     }
+);
 
-});
 
 // ==========================================
 // REGISTRO DE USUARIO
 // ==========================================
 
-app.post("/auth/register", async (req, res) => {
+app.post(
+    "/auth/register",
+    async (req, res) => {
 
-    const client = await pool.connect();
+        const client =
+            await pool.connect();
 
-    try {
-
-        let {
-            username,
-            password
-        } = req.body;
-
-        // ----------------------------------
-        // VALIDAR DATOS
-        // ----------------------------------
-
-        if (
-            typeof username !== "string" ||
-            typeof password !== "string"
-        ) {
-
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Usuario y contraseña son obligatorios."
-            });
-        }
-
-        username =
-            username
-                .trim()
-                .toLowerCase();
-
-        // Usuario:
-        // 3-20 caracteres
-        // letras, números y _
-        if (
-            !/^[a-z0-9_]{3,20}$/.test(username)
-        ) {
-
-            return res.status(400).json({
-                success: false,
-                message:
-                    "El usuario debe tener entre 3 y 20 caracteres y solo usar letras, números o _."
-            });
-        }
-
-        // Contraseña:
-        // mínimo 8
-        // máximo 72
-        if (
-            password.length < 8 ||
-            password.length > 72
-        ) {
-
-            return res.status(400).json({
-                success: false,
-                message:
-                    "La contraseña debe tener entre 8 y 72 caracteres."
-            });
-        }
-
-        // ----------------------------------
-        // TRANSACCIÓN
-        // ----------------------------------
-
-        await client.query("BEGIN");
-
-        // Comprobar usuario existente
-        const existingUser =
-            await client.query(
-                `
-                SELECT id
-                FROM users
-                WHERE username = $1
-                `,
-                [username]
-            );
-
-        if (
-            existingUser.rows.length > 0
-        ) {
-
-            await client.query(
-                "ROLLBACK"
-            );
-
-            return res.status(409).json({
-                success: false,
-                message:
-                    "Ese nombre de usuario ya existe."
-            });
-        }
-
-        // ----------------------------------
-        // CIFRAR CONTRASEÑA
-        // ----------------------------------
-
-        const passwordHash =
-            await bcrypt.hash(
-                password,
-                12
-            );
-
-        // ----------------------------------
-        // CREAR USUARIO
-        // ----------------------------------
-
-        const userResult =
-            await client.query(
-                `
-                INSERT INTO users
-                (
-                    username,
-                    password_hash
-                )
-                VALUES ($1, $2)
-
-                RETURNING
-                    id,
-                    username,
-                    created_at
-                `,
-                [
-                    username,
-                    passwordHash
-                ]
-            );
-
-        const user =
-            userResult.rows[0];
-
-        // ----------------------------------
-        // CREAR PERSONAJE
-        // ----------------------------------
-
-        const characterResult =
-            await client.query(
-                `
-                INSERT INTO characters
-                (
-                    user_id
-                )
-                VALUES ($1)
-
-                RETURNING *
-                `,
-                [
-                    user.id
-                ]
-            );
-
-        const character =
-            characterResult.rows[0];
-
-        // ----------------------------------
-        // CONFIRMAR TRANSACCIÓN
-        // ----------------------------------
-
-        await client.query(
-            "COMMIT"
-        );
-
-        // ----------------------------------
-        // CREAR TOKEN JWT
-        // ----------------------------------
-
-        const token =
-            jwt.sign(
-                {
-                    userId: user.id,
-                    username:
-                        user.username
-                },
-
-                process.env.JWT_SECRET,
-
-                {
-                    expiresIn: "2h"
-                }
-            );
-
-        // ----------------------------------
-        // RESPUESTA
-        // ----------------------------------
-
-        res.status(201).json({
-
-            success: true,
-
-            message:
-                "Cuenta creada correctamente.",
-
-            token,
-
-            user: {
-                id: user.id,
-                username:
-                    user.username
-            },
-
-            character
-        });
-
-    } catch (error) {
-
-        // Si algo falla,
-        // cancelar los cambios.
 
         try {
+
+            let {
+                username,
+                password
+            } = req.body;
+
+
+            // ----------------------------------
+            // VALIDAR DATOS
+            // ----------------------------------
+
+            if (
+                typeof username !== "string" ||
+                typeof password !== "string"
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Usuario y contraseña son obligatorios."
+                    });
+
+            }
+
+
+            username =
+                username
+                    .trim()
+                    .toLowerCase();
+
+
+            if (
+                !/^[a-z0-9_]{3,20}$/.test(
+                    username
+                )
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "El usuario debe tener entre 3 y 20 caracteres y solo usar letras, números o _."
+                    });
+
+            }
+
+
+            if (
+                password.length < 8 ||
+                password.length > 72
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "La contraseña debe tener entre 8 y 72 caracteres."
+                    });
+
+            }
+
+
+            // ----------------------------------
+            // TRANSACCIÓN
+            // ----------------------------------
+
             await client.query(
-                "ROLLBACK"
+                "BEGIN"
             );
-        } catch (rollbackError) {
+
+
+            const existingUser =
+                await client.query(
+                    `
+                        SELECT id
+                        FROM users
+                        WHERE username = $1
+                    `,
+                    [username]
+                );
+
+
+            if (
+                existingUser.rows.length > 0
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(409)
+                    .json({
+                        success: false,
+                        message:
+                            "Ese nombre de usuario ya existe."
+                    });
+
+            }
+
+
+            // ----------------------------------
+            // CIFRAR CONTRASEÑA
+            // ----------------------------------
+
+            const passwordHash =
+                await bcrypt.hash(
+                    password,
+                    12
+                );
+
+
+            // ----------------------------------
+            // CREAR USUARIO
+            // ----------------------------------
+
+            const userResult =
+                await client.query(
+                    `
+                        INSERT INTO users
+                        (
+                            username,
+                            password_hash
+                        )
+
+                        VALUES ($1, $2)
+
+                        RETURNING
+                            id,
+                            username,
+                            created_at
+                    `,
+                    [
+                        username,
+                        passwordHash
+                    ]
+                );
+
+
+            const user =
+                userResult.rows[0];
+
+
+            // ----------------------------------
+            // CREAR PERSONAJE
+            // ----------------------------------
+
+            const characterResult =
+                await client.query(
+                    `
+                        INSERT INTO characters
+                        (
+                            user_id
+                        )
+
+                        VALUES ($1)
+
+                        RETURNING *
+                    `,
+                    [
+                        user.id
+                    ]
+                );
+
+
+            const character =
+                characterResult.rows[0];
+
+
+            // ----------------------------------
+            // CONFIRMAR TRANSACCIÓN
+            // ----------------------------------
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            // ----------------------------------
+            // CREAR TOKEN
+            // ----------------------------------
+
+            const token =
+                jwt.sign(
+                    {
+                        userId:
+                            user.id,
+
+                        username:
+                            user.username
+                    },
+
+                    process.env.JWT_SECRET,
+
+                    {
+                        expiresIn:
+                            "2h"
+                    }
+                );
+
+
+            // ----------------------------------
+            // RESPUESTA
+            // ----------------------------------
+
+            return res
+                .status(201)
+                .json({
+
+                    success: true,
+
+                    message:
+                        "Cuenta creada correctamente.",
+
+                    token,
+
+                    user: {
+                        id:
+                            user.id,
+
+                        username:
+                            user.username
+                    },
+
+                    character
+
+                });
+
+
+        } catch (error) {
+
+            try {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+            } catch (rollbackError) {
+
+                console.error(
+                    "[ROLLBACK ERROR]",
+                    rollbackError.message
+                );
+
+            }
+
+
             console.error(
-                "[ROLLBACK ERROR]",
-                rollbackError.message
+                "[REGISTER ERROR]",
+                error.message
             );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo crear la cuenta."
+                });
+
+
+        } finally {
+
+            client.release();
+
         }
 
-        console.error(
-            "[REGISTER ERROR]",
-            error.message
-        );
-
-        res.status(500).json({
-            success: false,
-            message:
-                "No se pudo crear la cuenta."
-        });
-
-    } finally {
-
-        client.release();
-
     }
+);
 
-});
+
 // ==========================================
 // LOGIN DE USUARIO
 // ==========================================
 
-app.post("/auth/login", async (req, res) => {
-    try {
-        let { username, password } = req.body;
+app.post(
+    "/auth/login",
+    async (req, res) => {
 
-        if (
-            typeof username !== "string" ||
-            typeof password !== "string"
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Usuario y contraseña son obligatorios."
-            });
-        }
+        try {
 
-        username = username.trim().toLowerCase();
-
-        const result = await pool.query(
-            `
-            SELECT
-                id,
+            let {
                 username,
-                password_hash
-            FROM users
-            WHERE username = $1
-            `,
-            [username]
-        );
+                password
+            } = req.body;
 
-        if (result.rows.length === 0) {
-            return res.status(401).json({
-                success: false,
-                message: "Usuario o contraseña incorrectos."
-            });
-        }
 
-        const user = result.rows[0];
+            if (
+                typeof username !== "string" ||
+                typeof password !== "string"
+            ) {
 
-        const passwordCorrect = await bcrypt.compare(
-            password,
-            user.password_hash
-        );
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Usuario y contraseña son obligatorios."
+                    });
 
-        if (!passwordCorrect) {
-            return res.status(401).json({
-                success: false,
-                message: "Usuario o contraseña incorrectos."
-            });
-        }
-
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                username: user.username
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: "2h"
             }
-        );
 
-        const characterResult = await pool.query(
-            `
-            SELECT *
-            FROM characters
-            WHERE user_id = $1
-            `,
-            [user.id]
-        );
 
-        res.status(200).json({
-            success: true,
-            message: "Sesión iniciada correctamente.",
+            username =
+                username
+                    .trim()
+                    .toLowerCase();
 
-            token,
 
-            user: {
-                id: user.id,
-                username: user.username
-            },
+            const result =
+                await pool.query(
+                    `
+                        SELECT
+                            id,
+                            username,
+                            password_hash
 
-            character:
-                characterResult.rows[0] || null
-        });
+                        FROM users
 
-    } catch (error) {
-        console.error(
-            "[LOGIN ERROR]",
-            error.message
-        );
+                        WHERE username = $1
+                    `,
+                    [
+                        username
+                    ]
+                );
 
-        res.status(500).json({
-            success: false,
-            message: "No se pudo iniciar sesión."
-        });
+
+            if (
+                result.rows.length === 0
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        success: false,
+                        message:
+                            "Usuario o contraseña incorrectos."
+                    });
+
+            }
+
+
+            const user =
+                result.rows[0];
+
+
+            const passwordCorrect =
+                await bcrypt.compare(
+                    password,
+                    user.password_hash
+                );
+
+
+            if (!passwordCorrect) {
+
+                return res
+                    .status(401)
+                    .json({
+                        success: false,
+                        message:
+                            "Usuario o contraseña incorrectos."
+                    });
+
+            }
+
+
+            const token =
+                jwt.sign(
+                    {
+                        userId:
+                            user.id,
+
+                        username:
+                            user.username
+                    },
+
+                    process.env.JWT_SECRET,
+
+                    {
+                        expiresIn:
+                            "2h"
+                    }
+                );
+
+
+            const characterResult =
+                await pool.query(
+                    `
+                        SELECT *
+                        FROM characters
+                        WHERE user_id = $1
+                    `,
+                    [
+                        user.id
+                    ]
+                );
+
+
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    message:
+                        "Sesión iniciada correctamente.",
+
+                    token,
+
+                    user: {
+                        id:
+                            user.id,
+
+                        username:
+                            user.username
+                    },
+
+                    character:
+                        characterResult.rows[0] ||
+                        null
+
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "[LOGIN ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo iniciar sesión."
+                });
+
+        }
+
     }
-});
+);
+
+
 // ==========================================
-// MIDDLEWARE DE AUTENTICACIÓN JWT
+// AUTENTICACIÓN JWT
 // ==========================================
 
-function authenticateToken(req, res, next) {
+function authenticateToken(
+    req,
+    res,
+    next
+) {
 
-    const authHeader = req.headers.authorization;
+    const authHeader =
+        req.headers.authorization;
+
 
     if (
         !authHeader ||
-        !authHeader.startsWith("Bearer ")
+        !authHeader.startsWith(
+            "Bearer "
+        )
     ) {
-        return res.status(401).json({
-            success: false,
-            message: "Debes iniciar sesión."
-        });
+
+        return res
+            .status(401)
+            .json({
+                success: false,
+                message:
+                    "Debes iniciar sesión."
+            });
+
     }
 
-    const token = authHeader.substring(7);
+
+    const token =
+        authHeader.substring(7);
+
 
     try {
 
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET
-        );
+        const decoded =
+            jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            );
 
-        req.user = decoded;
+
+        req.user =
+            decoded;
+
 
         next();
 
+
     } catch (error) {
 
-        return res.status(401).json({
-            success: false,
-            message: "Sesión inválida o expirada."
-        });
+        return res
+            .status(401)
+            .json({
+                success: false,
+                message:
+                    "Sesión inválida o expirada."
+            });
 
     }
+
 }
 
 
@@ -543,40 +746,56 @@ app.get(
 
         try {
 
-            const result = await pool.query(
-                `
-                    SELECT
-                        id,
-                        user_id,
-                        level,
-                        xp,
-                        gold,
-                        hp,
-                        mana,
-                        x,
-                        y,
-                        zone,
-                        created_at,
-                        updated_at
-                    FROM characters
-                    WHERE user_id = $1
-                `,
-                [req.user.userId]
-            );
+            const result =
+                await pool.query(
+                    `
+                        SELECT
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            created_at,
+                            updated_at
 
-            if (result.rows.length === 0) {
+                        FROM characters
 
-                return res.status(404).json({
-                    success: false,
-                    message: "Personaje no encontrado."
-                });
+                        WHERE user_id = $1
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            if (
+                result.rows.length === 0
+            ) {
+
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
 
             }
 
-            return res.status(200).json({
-                success: true,
-                character: result.rows[0]
-            });
+
+            return res
+                .status(200)
+                .json({
+                    success: true,
+                    character:
+                        result.rows[0]
+                });
+
 
         } catch (error) {
 
@@ -585,16 +804,21 @@ app.get(
                 error.message
             );
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    "No se pudo cargar el personaje."
-            });
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo cargar el personaje."
+                });
 
         }
 
     }
 );
+
+
 // ==========================================
 // GUARDAR ESTADO SEGURO DEL PERSONAJE
 // ==========================================
@@ -616,13 +840,20 @@ app.put(
 
 
             // ----------------------------------
-            // CONVERTIR Y VALIDAR NÚMEROS
+            // VALIDAR NÚMEROS
             // ----------------------------------
 
-            const safeHp = Number(hp);
-            const safeMana = Number(mana);
-            const safeX = Number(x);
-            const safeY = Number(y);
+            const safeHp =
+                Number(hp);
+
+            const safeMana =
+                Number(mana);
+
+            const safeX =
+                Number(x);
+
+            const safeY =
+                Number(y);
 
 
             if (
@@ -632,10 +863,13 @@ app.put(
                 !Number.isFinite(safeY)
             ) {
 
-                return res.status(400).json({
-                    success: false,
-                    message: "Estado del personaje inválido."
-                });
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Estado del personaje inválido."
+                    });
 
             }
 
@@ -658,45 +892,125 @@ app.put(
                 !allowedZones.includes(zone)
             ) {
 
-                return res.status(400).json({
-                    success: false,
-                    message: "Zona inválida."
-                });
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Zona inválida."
+                    });
 
             }
 
 
             // ----------------------------------
-            // LIMITAR POSICIÓN AL MAPA
+            // LIMITAR POSICIÓN
             // ----------------------------------
 
             const safePositionX =
                 Math.max(
                     0,
-                    Math.min(2400, safeX)
+                    Math.min(
+                        2400,
+                        safeX
+                    )
                 );
+
 
             const safePositionY =
                 Math.max(
                     0,
-                    Math.min(1600, safeY)
+                    Math.min(
+                        1600,
+                        safeY
+                    )
                 );
 
 
             // ----------------------------------
-            // LIMITAR HP Y MANA
+            // OBTENER NIVEL REAL
             // ----------------------------------
+
+            const characterResult =
+                await pool.query(
+                    `
+                        SELECT level
+                        FROM characters
+                        WHERE user_id = $1
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            if (
+                characterResult.rows.length === 0
+            ) {
+
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
+
+            }
+
+
+            const level =
+                Math.max(
+                    1,
+                    Number(
+                        characterResult
+                            .rows[0]
+                            .level
+                    ) || 1
+                );
+
+
+            // ----------------------------------
+            // CALCULAR HP/MANA MÁXIMOS
+            // ----------------------------------
+
+            const maxHp =
+                100 +
+                (
+                    (level - 1) *
+                    10
+                );
+
+
+            const maxMana =
+                50 +
+                (
+                    (level - 1) *
+                    5
+                );
+
 
             const safeHealth =
                 Math.max(
                     0,
-                    Math.floor(safeHp)
+                    Math.min(
+                        maxHp,
+                        Math.floor(
+                            safeHp
+                        )
+                    )
                 );
+
 
             const safeMagic =
                 Math.max(
                     0,
-                    Math.floor(safeMana)
+                    Math.min(
+                        maxMana,
+                        Math.floor(
+                            safeMana
+                        )
+                    )
                 );
 
 
@@ -704,59 +1018,73 @@ app.put(
             // ACTUALIZAR POSTGRESQL
             // ----------------------------------
 
-            const result = await pool.query(
-                `
-                    UPDATE characters
+            const result =
+                await pool.query(
+                    `
+                        UPDATE characters
 
-                    SET
-                        hp = $1,
-                        mana = $2,
-                        x = $3,
-                        y = $4,
-                        zone = $5,
-                        updated_at = NOW()
+                        SET
+                            hp = $1,
+                            mana = $2,
+                            x = $3,
+                            y = $4,
+                            zone = $5,
+                            updated_at = NOW()
 
-                    WHERE user_id = $6
+                        WHERE user_id = $6
 
-                    RETURNING
-                        id,
-                        user_id,
-                        level,
-                        xp,
-                        gold,
-                        hp,
-                        mana,
-                        x,
-                        y,
+                        RETURNING
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            updated_at
+                    `,
+                    [
+                        safeHealth,
+                        safeMagic,
+                        safePositionX,
+                        safePositionY,
                         zone,
-                        updated_at
-                `,
-                [
-                    safeHealth,
-                    safeMagic,
-                    safePositionX,
-                    safePositionY,
-                    zone,
-                    req.user.userId
-                ]
-            );
+                        req.user.userId
+                    ]
+                );
 
 
-            if (result.rows.length === 0) {
+            if (
+                result.rows.length === 0
+            ) {
 
-                return res.status(404).json({
-                    success: false,
-                    message: "Personaje no encontrado."
-                });
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
 
             }
 
 
-            return res.status(200).json({
-                success: true,
-                message: "Personaje guardado.",
-                character: result.rows[0]
-            });
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    message:
+                        "Personaje guardado.",
+
+                    character:
+                        result.rows[0]
+
+                });
 
 
         } catch (error) {
@@ -767,24 +1095,38 @@ app.put(
             );
 
 
-            return res.status(500).json({
-    success: false,
-    message:
-        "No se pudo guardar el personaje."
-});
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo guardar el personaje."
+                });
+
+        }
+
+    }
+);
+
+
 // ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
 
-app.use((req, res) => {
+app.use(
+    (req, res) => {
 
-    res.status(404).json({
-        success: false,
-        message:
-            "Ruta no encontrada."
-    });
+        res
+            .status(404)
+            .json({
+                success: false,
+                message:
+                    "Ruta no encontrada."
+            });
 
-});
+    }
+);
+
 
 // ==========================================
 // ERROR GENERAL
@@ -803,58 +1145,80 @@ app.use(
             error
         );
 
-        res.status(500).json({
-            success: false,
-            message:
-                "Error interno del servidor."
-        });
+
+        res
+            .status(500)
+            .json({
+                success: false,
+                message:
+                    "Error interno del servidor."
+            });
 
     }
 );
 
-// ==========================================
-// INICIAR BASE DE DATOS
-// ==========================================
-
-initializeDatabase();
 
 // ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 
-app.listen(
-    PORT,
-    () => {
+async function startServer() {
 
-        console.log(
-            "================================="
+    try {
+
+        await initializeDatabase();
+
+
+        app.listen(
+            PORT,
+            () => {
+
+                console.log(
+                    "================================="
+                );
+
+                console.log(
+                    "⚔ REINOS DE ETHERIAL SERVER"
+                );
+
+                console.log(
+                    "Versión: 4.0.0"
+                );
+
+                console.log(
+                    "Puerto:",
+                    PORT
+                );
+
+                console.log(
+                    "Frontend permitido:",
+                    GAME_ORIGIN
+                );
+
+                console.log(
+                    "Estado: ONLINE"
+                );
+
+                console.log(
+                    "================================="
+                );
+
+            }
         );
 
-        console.log(
-            "⚔ REINOS DE ETHERIAL SERVER"
+
+    } catch (error) {
+
+        console.error(
+            "[SERVER START ERROR]",
+            error
         );
 
-        console.log(
-            "Versión: 4.0.0"
-        );
-
-        console.log(
-            "Puerto:",
-            PORT
-        );
-
-        console.log(
-            "Frontend permitido:",
-            GAME_ORIGIN
-        );
-
-        console.log(
-            "Estado: ONLINE"
-        );
-
-        console.log(
-            "================================="
-        );
+        process.exit(1);
 
     }
-);
+
+}
+
+
+startServer();
