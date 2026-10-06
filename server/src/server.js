@@ -491,6 +491,111 @@ app.post("/auth/login", async (req, res) => {
     }
 });
 // ==========================================
+// MIDDLEWARE DE AUTENTICACIÓN JWT
+// ==========================================
+
+function authenticateToken(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+
+    if (
+        !authHeader ||
+        !authHeader.startsWith("Bearer ")
+    ) {
+        return res.status(401).json({
+            success: false,
+            message: "Debes iniciar sesión."
+        });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        );
+
+        req.user = decoded;
+
+        next();
+
+    } catch (error) {
+
+        return res.status(401).json({
+            success: false,
+            message: "Sesión inválida o expirada."
+        });
+
+    }
+}
+
+
+// ==========================================
+// OBTENER PERSONAJE
+// ==========================================
+
+app.get(
+    "/character",
+    authenticateToken,
+    async (req, res) => {
+
+        try {
+
+            const result = await pool.query(
+                `
+                    SELECT
+                        id,
+                        user_id,
+                        level,
+                        xp,
+                        gold,
+                        hp,
+                        mana,
+                        x,
+                        y,
+                        zone,
+                        created_at,
+                        updated_at
+                    FROM characters
+                    WHERE user_id = $1
+                `,
+                [req.user.userId]
+            );
+
+            if (result.rows.length === 0) {
+
+                return res.status(404).json({
+                    success: false,
+                    message: "Personaje no encontrado."
+                });
+
+            }
+
+            return res.status(200).json({
+                success: true,
+                character: result.rows[0]
+            });
+
+        } catch (error) {
+
+            console.error(
+                "[GET CHARACTER ERROR]",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo cargar el personaje."
+            });
+
+        }
+
+    }
+);
+// ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
 
