@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.2
+   REINOS DE ETHERIAL V4.3
    GAME.JS
 ========================================================= */
 
@@ -17,7 +17,7 @@ ctx.imageSmoothingEnabled = false;
 const VIEW_WIDTH = canvas.width;
 const VIEW_HEIGHT = canvas.height;
 
-const SAVE_KEY = "reinos_etherial_v4_2_save";
+const SAVE_KEY = "reinos_etherial_v4_3_save";
 
 
 /* =========================================================
@@ -322,6 +322,7 @@ window.addEventListener(
         );
 
         loadQuestsFromServer();
+        loadInventoryAndEquipmentFromServer();
     }
 );
 
@@ -335,9 +336,7 @@ window.EtherialGame = {
    INVENTARIO
 ========================================================= */
 
-let inventory = {
-    ...STARTING_INVENTORY
-};
+let inventory = {};
 
 
 /* =========================================================
@@ -345,8 +344,129 @@ let inventory = {
 ========================================================= */
 
 let equipment = {
-    ...STARTING_EQUIPMENT
+    weapon: null,
+    armor: null,
+    helmet: null,
+    boots: null
 };
+
+
+/* =========================================================
+   V4.3 - INVENTARIO Y EQUIPAMIENTO DESDE POSTGRESQL
+========================================================= */
+
+function inventoryRowsToObject(rows) {
+    const nextInventory = {};
+
+    if (!Array.isArray(rows)) {
+        return nextInventory;
+    }
+
+    rows.forEach(row => {
+        const itemId = row.item_id;
+        const quantity = Math.max(
+            0,
+            Math.floor(Number(row.quantity) || 0)
+        );
+
+        if (
+            typeof itemId === "string" &&
+            ITEMS[itemId] &&
+            quantity > 0
+        ) {
+            nextInventory[itemId] = quantity;
+        }
+    });
+
+    return nextInventory;
+}
+
+function applyServerInventory(rows) {
+    inventory = inventoryRowsToObject(rows);
+    renderInventory();
+}
+
+function applyServerEquipment(serverEquipment) {
+    const source = serverEquipment || {};
+
+    equipment = {
+        weapon: source.weapon || null,
+        armor: source.armor || null,
+        helmet: source.helmet || null,
+        boots: source.boots || null
+    };
+
+    renderEquipment();
+    updateUI();
+}
+
+async function loadInventoryAndEquipmentFromServer() {
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.getInventory !== "function" ||
+        typeof EtherialAPI.getEquipment !== "function"
+    ) {
+        return false;
+    }
+
+    try {
+        const [inventoryResult, equipmentResult] =
+            await Promise.all([
+                EtherialAPI.getInventory(),
+                EtherialAPI.getEquipment()
+            ]);
+
+        if (inventoryResult?.success === true) {
+            applyServerInventory(
+                inventoryResult.inventory || []
+            );
+        }
+
+        if (equipmentResult?.success === true) {
+            applyServerEquipment(
+                equipmentResult.equipment || {}
+            );
+        }
+
+        console.log(
+            "🎒 Inventario/equipo V4.3 cargados desde PostgreSQL."
+        );
+
+        return true;
+    } catch (error) {
+        console.error(
+            "[V4.3 INVENTORY LOAD]",
+            error
+        );
+
+        addLog(
+            "⚠ No se pudo cargar inventario/equipo del servidor."
+        );
+
+        return false;
+    }
+}
+
+async function refreshInventoryFromServer() {
+    try {
+        const result =
+            await EtherialAPI.getInventory();
+
+        if (result?.success === true) {
+            applyServerInventory(
+                result.inventory || []
+            );
+            return true;
+        }
+    } catch (error) {
+        console.error(
+            "[V4.3 INVENTORY REFRESH]",
+            error
+        );
+    }
+
+    return false;
+}
 
 
 /* =========================================================
@@ -507,7 +627,7 @@ async function loadQuestsFromServer() {
 
 
             console.log(
-                "📜 Misiones V4.2 cargadas desde PostgreSQL:",
+                "📜 Misiones V4.3 cargadas desde PostgreSQL:",
                 result.quests || []
             );
 
@@ -518,7 +638,7 @@ async function loadQuestsFromServer() {
     catch (error) {
 
         console.error(
-            "[V4.2 QUEST LOAD]",
+            "[V4.3 QUEST LOAD]",
             error
         );
 
@@ -580,22 +700,15 @@ async function claimServerQuest(
             result.reward || {};
 
 
-        if (reward.items) {
+        // V4.3: los objetos ya fueron guardados por el servidor.
+        if (Array.isArray(result.inventory)) {
+            applyServerInventory(result.inventory);
+        } else {
+            await refreshInventoryFromServer();
+        }
 
-            Object.entries(
-                reward.items
-            )
-            .forEach(
-                ([itemId, amount]) => {
-
-                    addItem(
-                        itemId,
-                        Number(amount) || 0
-                    );
-
-                }
-            );
-
+        if (result.equipment) {
+            applyServerEquipment(result.equipment);
         }
 
 
@@ -650,7 +763,7 @@ async function claimServerQuest(
         ) {
 
             addLog(
-                "👑 ¡Has completado todas las misiones de V4.2!"
+                "👑 ¡Has completado todas las misiones de V4.3!"
             );
 
         }
@@ -670,7 +783,7 @@ async function claimServerQuest(
     catch (error) {
 
         console.error(
-            "[V4.2 QUEST CLAIM]",
+            "[V4.3 QUEST CLAIM]",
             error
         );
 
@@ -897,80 +1010,16 @@ function removeItem(itemId, amount = 1) {
 ========================================================= */
 
 function useInventoryItem(itemId) {
-
-    const item =
-        ITEMS[itemId];
+    const item = ITEMS[itemId];
 
     if (!item) return;
 
-
     if (item.type === "consumable") {
-
-        if (item.heal) {
-
-            if (player.hp >= player.maxHp) {
-
-                addLog(
-                    "❤️ Ya tienes la vida completa."
-                );
-
-                return;
-            }
-
-            const amount =
-                Math.min(
-                    item.heal,
-                    player.maxHp - player.hp
-                );
-
-            player.hp += amount;
-
-            removeItem(itemId, 1);
-
-            addLog(
-                "🧪 Recuperas " +
-                amount +
-                " HP."
-            );
-
-        }
-
-
-        else if (item.mana) {
-
-            if (player.mana >= player.maxMana) {
-
-                addLog(
-                    "🔷 Ya tienes el mana completo."
-                );
-
-                return;
-            }
-
-            const amount =
-                Math.min(
-                    item.mana,
-                    player.maxMana - player.mana
-                );
-
-            player.mana += amount;
-
-            removeItem(itemId, 1);
-
-            addLog(
-                "🔷 Recuperas " +
-                amount +
-                " de mana."
-            );
-
-        }
-
-        saveGame(false);
-        updateUI();
-
+        addLog(
+            "🧪 Consumibles en migración al servidor V4.3."
+        );
         return;
     }
-
 
     const validEquipment = [
         "weapon",
@@ -979,16 +1028,9 @@ function useInventoryItem(itemId) {
         "boots"
     ];
 
-
-    if (
-        validEquipment.includes(
-            item.type
-        )
-    ) {
-
+    if (validEquipment.includes(item.type)) {
         equipItem(itemId);
     }
-
 }
 
 
@@ -996,53 +1038,72 @@ function useInventoryItem(itemId) {
    EQUIPAR
 ========================================================= */
 
-function equipItem(itemId) {
-
-    const item =
-        ITEMS[itemId];
+async function equipItem(itemId) {
+    const item = ITEMS[itemId];
 
     if (!item) return;
 
-    const slot =
-        item.type;
+    const validEquipment = [
+        "weapon",
+        "armor",
+        "helmet",
+        "boots"
+    ];
 
-    if (!inventory[itemId]) {
+    if (!validEquipment.includes(item.type)) {
         return;
     }
 
-
-    const previousItem =
-        equipment[slot];
-
-
-    removeItem(itemId, 1);
-
-
-    if (previousItem) {
-
-        if (!inventory[previousItem]) {
-            inventory[previousItem] = 0;
-        }
-
-        inventory[previousItem]++;
+    if (!inventory[itemId] || inventory[itemId] <= 0) {
+        addLog("🎒 No tienes ese objeto.");
+        return;
     }
 
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.equipItem !== "function"
+    ) {
+        addLog(
+            "⚠ Equipamiento del servidor no disponible."
+        );
+        return;
+    }
 
-    equipment[slot] =
-        itemId;
+    try {
+        const result =
+            await EtherialAPI.equipItem(itemId);
 
+        if (
+            !result ||
+            result.success !== true ||
+            !result.equipment
+        ) {
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+        }
 
-    addLog(
-        "⚔ Equipaste " +
-        item.name +
-        "."
-    );
+        applyServerEquipment(result.equipment);
 
+        addLog(
+            "⚔ Equipaste " +
+            item.name +
+            "."
+        );
 
-    renderInventory();
-    renderEquipment();
+        updateUI();
+    } catch (error) {
+        console.error(
+            "[V4.3 EQUIP ITEM]",
+            error
+        );
 
-    saveGame(false);
+        addLog(
+            "⚠ No se pudo equipar " +
+            item.name +
+            "."
+        );
+    }
 }
 
 
@@ -1208,7 +1269,7 @@ async function killEnemy(enemy) {
     ) {
 
         console.error(
-            "[V4.2] enemyKilled no está disponible."
+            "[V4.3] enemyKilled no está disponible."
         );
 
         addLog(
@@ -1378,11 +1439,13 @@ async function killEnemy(enemy) {
         // LOOT LOCAL
         // ======================================
 
-        processLoot(type);
+        // V4.3: loot local desactivado temporalmente.
+        // Evita crear objetos que no existan en PostgreSQL.
+        // processLoot(type);
 
 
         // ======================================
-        // MISIONES V4.2 - PROGRESO DEL SERVIDOR
+        // MISIONES V4.3 - PROGRESO DEL SERVIDOR
         // ======================================
 
         if (result.quest) {
@@ -1446,7 +1509,7 @@ async function killEnemy(enemy) {
 
 
         console.log(
-            "⚔ Recompensa V4.2 confirmada:",
+            "⚔ Recompensa V4.3 confirmada:",
             {
                 enemy:
                     enemy.type,
@@ -1479,7 +1542,7 @@ async function killEnemy(enemy) {
     } catch (error) {
 
         console.error(
-            "[V4.2 ENEMY REWARD ERROR]",
+            "[V4.3 ENEMY REWARD ERROR]",
             error
         );
 
@@ -1720,7 +1783,7 @@ async function processQuestTalk(
     catch (error) {
 
         console.error(
-            "[V4.2 NPC QUEST]",
+            "[V4.3 NPC QUEST]",
             error
         );
 
@@ -1735,7 +1798,7 @@ async function processQuestTalk(
 
 
 /* =========================================================
-   COMPLETAR MISIÓN V4.2
+   COMPLETAR MISIÓN V4.3
 
    Las recompensas oficiales se procesan en el servidor.
 ========================================================= */
@@ -2094,48 +2157,13 @@ function buyItem(
     itemId,
     price
 ) {
-
-    if (
-        player.gold <
-        price
-    ) {
-
-        addLog(
-            "💰 No tienes suficiente oro."
-        );
-
-        return;
-    }
-
-
-    player.gold -= price;
-
-
-    addItem(
-        itemId,
-        1
+    addLog(
+        "🏪 Tienda en migración a PostgreSQL."
     );
-
-
-    document
-        .getElementById(
-            "shopGold"
-        )
-        .textContent =
-        player.gold;
-
 
     addLog(
-        "🏪 Compraste " +
-        ITEMS[itemId].name +
-        "."
+        "🔒 Las compras volverán con el endpoint seguro del servidor."
     );
-
-
-    updateUI();
-
-    saveGame(false);
-
 }
 
 
@@ -3773,25 +3801,7 @@ function loadGame() {
             );
 
         }
-
-
-        if (data.inventory) {
-
-            inventory =
-                data.inventory;
-
-        }
-
-
-        if (data.equipment) {
-
-            equipment =
-                data.equipment;
-
-        }
-
-
-        if (data.questState) {
+if (data.questState) {
 
             questState =
                 data.questState;
@@ -3820,7 +3830,7 @@ function resetGame() {
 
     const answer =
         confirm(
-            "¿Quieres borrar los datos locales de V4.2?"
+            "¿Quieres borrar los datos locales de V4.3?"
         );
 
 
@@ -4078,7 +4088,7 @@ const loaded =
 if (loaded) {
 
     addLog(
-        "💾 Datos locales V4.2 cargados."
+        "💾 Datos locales V4.3 cargados."
     );
 
 }
@@ -4086,7 +4096,7 @@ if (loaded) {
 else {
 
     addLog(
-        "🌟 Bienvenido a Reinos de Etherial V4.2."
+        "🌟 Bienvenido a Reinos de Etherial V4.3."
     );
 
 
