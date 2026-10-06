@@ -8,20 +8,29 @@
 
 "use strict";
 
- 
+
 const EtherialAPI = (() => {
+
 
     /* =====================================================
        CONFIGURACIÓN
     ===================================================== */
 
-    const config = GAME_CONFIG.api;
+    const config =
+        GAME_CONFIG.api;
 
-    let authToken = null;
 
-    let currentUser = null;
+    let authToken =
+        null;
 
-    let online = false;
+
+    let currentUser =
+        null;
+
+
+    let online =
+        false;
+
 
 
     /* =====================================================
@@ -30,7 +39,9 @@ const EtherialAPI = (() => {
 
     function log(...args) {
 
-        if (GAME_CONFIG.debug) {
+        if (
+            GAME_CONFIG.debug
+        ) {
 
             console.log(
                 "[EtherialAPI]",
@@ -40,6 +51,7 @@ const EtherialAPI = (() => {
         }
 
     }
+
 
 
     function getHeaders() {
@@ -55,7 +67,8 @@ const EtherialAPI = (() => {
         if (authToken) {
 
             headers.Authorization =
-                "Bearer " + authToken;
+                "Bearer " +
+                authToken;
 
         }
 
@@ -63,6 +76,7 @@ const EtherialAPI = (() => {
         return headers;
 
     }
+
 
 
     /* =====================================================
@@ -76,7 +90,8 @@ const EtherialAPI = (() => {
 
         if (
             !config.enabled ||
-            GAME_CONFIG.mode !== "server"
+            GAME_CONFIG.mode !==
+                "server"
         ) {
 
             throw new Error(
@@ -92,7 +107,9 @@ const EtherialAPI = (() => {
 
         const timeout =
             setTimeout(
-                () => controller.abort(),
+                () =>
+                    controller.abort(),
+
                 config.timeout
             );
 
@@ -101,8 +118,10 @@ const EtherialAPI = (() => {
 
             const response =
                 await fetch(
+
                     config.baseUrl +
                     endpoint,
+
                     {
 
                         ...options,
@@ -111,7 +130,10 @@ const EtherialAPI = (() => {
 
                             ...getHeaders(),
 
-                            ...(options.headers || {})
+                            ...(
+                                options.headers ||
+                                {}
+                            )
 
                         },
 
@@ -119,13 +141,17 @@ const EtherialAPI = (() => {
                             controller.signal
 
                     }
+
                 );
 
 
-            clearTimeout(timeout);
+            clearTimeout(
+                timeout
+            );
 
 
-            let data = null;
+            let data =
+                null;
 
 
             try {
@@ -137,15 +163,20 @@ const EtherialAPI = (() => {
 
             catch {
 
-                data = null;
+                data =
+                    null;
 
             }
 
 
-            if (!response.ok) {
+            if (
+                !response.ok
+            ) {
 
                 const message =
+
                     data?.message ||
+
                     "SERVER_ERROR";
 
 
@@ -156,7 +187,9 @@ const EtherialAPI = (() => {
             }
 
 
-            online = true;
+            online =
+                true;
+
 
             return data;
 
@@ -164,15 +197,21 @@ const EtherialAPI = (() => {
 
         catch (error) {
 
-            clearTimeout(timeout);
+            clearTimeout(
+                timeout
+            );
 
-            online = false;
+
+            online =
+                false;
+
 
             throw error;
 
         }
 
     }
+
 
 
     /* =====================================================
@@ -183,14 +222,17 @@ const EtherialAPI = (() => {
 
         if (
             !config.enabled ||
-            GAME_CONFIG.mode !== "server"
+            GAME_CONFIG.mode !==
+                "server"
         ) {
 
             return {
 
-                online: false,
+                online:
+                    false,
 
-                mode: "local",
+                mode:
+                    "local",
 
                 message:
                     "Servidor desactivado."
@@ -206,21 +248,26 @@ const EtherialAPI = (() => {
                 await request(
                     "/health",
                     {
-                        method: "GET"
+                        method:
+                            "GET"
                     }
                 );
 
 
-            online = true;
+            online =
+                true;
 
 
             return {
 
-                online: true,
+                online:
+                    true,
 
-                mode: "server",
+                mode:
+                    "server",
 
-                data: result
+                data:
+                    result
 
             };
 
@@ -228,14 +275,17 @@ const EtherialAPI = (() => {
 
         catch (error) {
 
-            online = false;
+            online =
+                false;
 
 
             return {
 
-                online: false,
+                online:
+                    false,
 
-                mode: "server",
+                mode:
+                    "server",
 
                 error:
                     error.message
@@ -245,6 +295,7 @@ const EtherialAPI = (() => {
         }
 
     }
+
 
 
     /* =====================================================
@@ -258,24 +309,31 @@ const EtherialAPI = (() => {
 
         const result =
             await request(
+
                 "/auth/register",
+
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
                     body:
                         JSON.stringify({
 
                             username,
+
                             password
 
                         })
 
                 }
+
             );
 
 
-        if (result.token) {
+        if (
+            result.token
+        ) {
 
             authToken =
                 result.token;
@@ -283,7 +341,9 @@ const EtherialAPI = (() => {
         }
 
 
-        if (result.user) {
+        if (
+            result.user
+        ) {
 
             currentUser =
                 result.user;
@@ -294,6 +354,7 @@ const EtherialAPI = (() => {
         return result;
 
     }
+
 
 
     /* =====================================================
@@ -307,24 +368,31 @@ const EtherialAPI = (() => {
 
         const result =
             await request(
+
                 "/auth/login",
+
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
                     body:
                         JSON.stringify({
 
                             username,
+
                             password
 
                         })
 
                 }
+
             );
 
 
-        if (result.token) {
+        if (
+            result.token
+        ) {
 
             authToken =
                 result.token;
@@ -332,7 +400,9 @@ const EtherialAPI = (() => {
         }
 
 
-        if (result.user) {
+        if (
+            result.user
+        ) {
 
             currentUser =
                 result.user;
@@ -345,17 +415,23 @@ const EtherialAPI = (() => {
     }
 
 
+
     /* =====================================================
        LOGOUT
     ===================================================== */
 
     function logout() {
 
-        authToken = null;
+        authToken =
+            null;
 
-        currentUser = null;
 
-        online = false;
+        currentUser =
+            null;
+
+
+        online =
+            false;
 
 
         log(
@@ -365,6 +441,7 @@ const EtherialAPI = (() => {
     }
 
 
+
     /* =====================================================
        OBTENER PERSONAJE
     ===================================================== */
@@ -372,13 +449,20 @@ const EtherialAPI = (() => {
     async function getCharacter() {
 
         return await request(
+
             "/character",
+
             {
-                method: "GET"
+
+                method:
+                    "GET"
+
             }
+
         );
 
     }
+
 
 
     /* =====================================================
@@ -390,10 +474,13 @@ const EtherialAPI = (() => {
     ) {
 
         return await request(
+
             "/character",
+
             {
 
-                method: "PUT",
+                method:
+                    "PUT",
 
                 body:
                     JSON.stringify(
@@ -401,13 +488,16 @@ const EtherialAPI = (() => {
                     )
 
             }
+
         );
 
     }
 
 
+
     /* =====================================================
-       V4.2 - RECOMPENSA SEGURA POR ENEMIGO
+       V4.2
+       RECOMPENSA SEGURA POR ENEMIGO
     ===================================================== */
 
     async function enemyKilled(
@@ -415,8 +505,11 @@ const EtherialAPI = (() => {
     ) {
 
         if (
-            typeof enemyType !== "string" ||
-            enemyType.length === 0
+            typeof enemyType !==
+                "string" ||
+
+            enemyType.length ===
+                0
         ) {
 
             throw new Error(
@@ -427,10 +520,13 @@ const EtherialAPI = (() => {
 
 
         return await request(
+
             "/game/enemy-killed",
+
             {
 
-                method: "POST",
+                method:
+                    "POST",
 
                 body:
                     JSON.stringify({
@@ -440,57 +536,184 @@ const EtherialAPI = (() => {
                     })
 
             }
+
         );
 
     }
 
 
-    /* =====================================================
-       INVENTARIO
-    ===================================================== */
-
-    async function getInventory() {
-
-        return await request(
-            "/inventory",
-            {
-                method: "GET"
-            }
-        );
-
-    }
-
 
     /* =====================================================
-       EQUIPAMIENTO
-    ===================================================== */
-
-    async function getEquipment() {
-
-        return await request(
-            "/equipment",
-            {
-                method: "GET"
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       MISIONES
+       V4.2
+       OBTENER MISIONES DEL SERVIDOR
     ===================================================== */
 
     async function getQuests() {
 
         return await request(
-            "/quests",
+
+            "/game/quests",
+
             {
-                method: "GET"
+
+                method:
+                    "GET"
+
             }
+
         );
 
     }
+
+
+
+    /* =====================================================
+       V4.2
+       HABLAR CON NPC
+    ===================================================== */
+
+    async function npcTalked(
+        npcId
+    ) {
+
+        if (
+            typeof npcId !==
+                "string" ||
+
+            npcId.length ===
+                0
+        ) {
+
+            throw new Error(
+                "INVALID_NPC_ID"
+            );
+
+        }
+
+
+        return await request(
+
+            "/game/npc-talked",
+
+            {
+
+                method:
+                    "POST",
+
+                body:
+                    JSON.stringify({
+
+                        npcId
+
+                    })
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       V4.2
+       COBRAR RECOMPENSA DE MISIÓN
+    ===================================================== */
+
+    async function completeQuest(
+        questId
+    ) {
+
+        if (
+            typeof questId !==
+                "string" ||
+
+            questId.length ===
+                0
+        ) {
+
+            throw new Error(
+                "INVALID_QUEST_ID"
+            );
+
+        }
+
+
+        return await request(
+
+            "/game/quest-completed",
+
+            {
+
+                method:
+                    "POST",
+
+                body:
+                    JSON.stringify({
+
+                        questId
+
+                    })
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       INVENTARIO
+
+       Todavía utiliza el sistema anterior.
+       Lo conectaremos a PostgreSQL
+       en una versión posterior.
+    ===================================================== */
+
+    async function getInventory() {
+
+        return await request(
+
+            "/inventory",
+
+            {
+
+                method:
+                    "GET"
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       EQUIPAMIENTO
+
+       Se migrará posteriormente
+       al servidor.
+    ===================================================== */
+
+    async function getEquipment() {
+
+        return await request(
+
+            "/equipment",
+
+            {
+
+                method:
+                    "GET"
+
+            }
+
+        );
+
+    }
+
 
 
     /* =====================================================
@@ -500,13 +723,20 @@ const EtherialAPI = (() => {
     async function getProfile() {
 
         return await request(
+
             "/profile",
+
             {
-                method: "GET"
+
+                method:
+                    "GET"
+
             }
+
         );
 
     }
+
 
 
     /* =====================================================
@@ -526,7 +756,9 @@ const EtherialAPI = (() => {
             online,
 
             authenticated:
-                Boolean(authToken),
+                Boolean(
+                    authToken
+                ),
 
             user:
                 currentUser
@@ -536,16 +768,21 @@ const EtherialAPI = (() => {
     }
 
 
+
     /* =====================================================
        TOKEN
     ===================================================== */
 
-    function setToken(token) {
+    function setToken(
+        token
+    ) {
 
         authToken =
-            token || null;
+            token ||
+            null;
 
     }
+
 
 
     function getToken() {
@@ -553,6 +790,7 @@ const EtherialAPI = (() => {
         return authToken;
 
     }
+
 
 
     /* =====================================================
@@ -575,11 +813,15 @@ const EtherialAPI = (() => {
 
         enemyKilled,
 
+        getQuests,
+
+        npcTalked,
+
+        completeQuest,
+
         getInventory,
 
         getEquipment,
-
-        getQuests,
 
         getProfile,
 
@@ -591,14 +833,18 @@ const EtherialAPI = (() => {
 
     };
 
+
 })();
+
 
 
 /* =========================================================
    INFORMACIÓN DE INICIO
 ========================================================= */
 
-if (GAME_CONFIG.debug) {
+if (
+    GAME_CONFIG.debug
+) {
 
     console.log(
         "[EtherialAPI] cargado."
