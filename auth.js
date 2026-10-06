@@ -444,36 +444,47 @@ document.addEventListener("DOMContentLoaded", () => {
     // --------------------------------------
 
     function enterGame(
+    user,
+    character
+) {
+
+    console.log(
+        "⚔ Usuario conectado:",
+        user
+    );
+
+    console.log(
+        "🧙 Personaje:",
+        character
+    );
+
+    window.ETHERIAL_SESSION = {
         user,
         character
-    ) {
+    };
 
-        console.log(
-            "⚔ Usuario conectado:",
-            user
-        );
+    // Avisar a game.js que el personaje
+    // del servidor ya está disponible.
+    window.dispatchEvent(
+        new CustomEvent(
+            "etherial:character-ready",
+            {
+                detail: {
+                    user,
+                    character
+                }
+            }
+        )
+    );
 
-        console.log(
-            "🧙 Personaje:",
-            character
-        );
+    authScreen.classList.add(
+        "hidden"
+    );
 
-
-        window.ETHERIAL_SESSION = {
-            user,
-            character
-        };
-
-
-        authScreen.classList.add(
-            "hidden"
-        );
-
-
-        document.body.classList.add(
-            "gameAuthenticated"
-        );
-    }
+    document.body.classList.add(
+        "gameAuthenticated"
+    );
+}
 
 
     // --------------------------------------
