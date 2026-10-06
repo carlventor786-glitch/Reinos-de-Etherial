@@ -1434,6 +1434,319 @@ app.post(
 );
 
 // ==========================================
+// V4.2 - MISIONES SEGURAS EN SERVIDOR
+// ==========================================
+
+const SERVER_QUESTS = {
+
+    introduction: {
+        xp: 0,
+        gold: 0
+    },
+
+    // Las siguientes recompensas se conectarán
+    // con los valores reales de QUESTS del juego.
+};
+
+
+// ==========================================
+// COMPLETAR MISIÓN
+// ==========================================
+
+app.post(
+    "/game/quest-completed",
+    authenticateToken,
+    async (req, res) => {
+
+        const client =
+            await pool.connect();
+
+        try {
+
+            const {
+                questId
+            } = req.body;
+
+
+            // ----------------------------------
+            // VALIDAR ID
+            // ----------------------------------
+
+            if (
+                typeof questId !== "string" ||
+                questId.length === 0
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Misión inválida."
+                    });
+
+            }
+
+
+            // ----------------------------------
+            // COMPROBAR MISIÓN DEL SERVIDOR
+            // ----------------------------------
+
+            const quest =
+                SERVER_QUESTS[questId];
+
+
+            if (!quest) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "La misión no existe en el servidor."
+                    });
+
+            }
+
+
+            await client.query(
+                "BEGIN"
+            );
+
+
+            // ----------------------------------
+            // BLOQUEAR PERSONAJE
+            // ----------------------------------
+
+            const result =
+                await client.query(
+                    `
+                        SELECT
+                            id,
+                            level,
+                            xp,
+                            gold
+
+                        FROM characters
+
+                        WHERE user_id = $1
+
+                        FOR UPDATE
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            if (
+                result.rows.length === 0
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
+
+            }
+
+
+            const character =
+                result.rows[0];
+
+
+            // ----------------------------------
+            // RECOMPENSA
+            // ----------------------------------
+
+            let newLevel =
+                Number(
+                    character.level
+                );
+
+
+            let newXp =
+                Number(
+                    character.xp
+                ) +
+                Number(
+                    quest.xp || 0
+                );
+
+
+            const newGold =
+                Number(
+                    character.gold
+                ) +
+                Number(
+                    quest.gold || 0
+                );
+
+
+            let levelsGained = 0;
+
+
+            // ----------------------------------
+            // CALCULAR LEVEL UP
+            // ----------------------------------
+
+            let requiredXp =
+                getRequiredXpForLevel(
+                    newLevel
+                );
+
+
+            while (
+                newXp >= requiredXp
+            ) {
+
+                newXp -=
+                    requiredXp;
+
+                newLevel++;
+
+                levelsGained++;
+
+
+                requiredXp =
+                    getRequiredXpForLevel(
+                        newLevel
+                    );
+
+            }
+
+
+            // ----------------------------------
+            // ACTUALIZAR PERSONAJE
+            // ----------------------------------
+
+            const updateResult =
+                await client.query(
+                    `
+                        UPDATE characters
+
+                        SET
+                            level = $1,
+                            xp = $2,
+                            gold = $3,
+                            updated_at = NOW()
+
+                        WHERE user_id = $4
+
+                        RETURNING
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            updated_at
+                    `,
+                    [
+                        newLevel,
+                        newXp,
+                        newGold,
+                        req.user.userId
+                    ]
+                );
+
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            // ----------------------------------
+            // RESPUESTA
+            // ----------------------------------
+
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    questId,
+
+                    reward: {
+
+                        xp:
+                            Number(
+                                quest.xp || 0
+                            ),
+
+                        gold:
+                            Number(
+                                quest.gold || 0
+                            ),
+
+                        levelsGained
+
+                    },
+
+                    character:
+                        updateResult.rows[0]
+
+                });
+
+
+        } catch (error) {
+
+            try {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+            } catch (
+                rollbackError
+            ) {
+
+                console.error(
+                    "[V4.2 QUEST ROLLBACK ERROR]",
+                    rollbackError.message
+                );
+
+            }
+
+
+            console.error(
+                "[V4.2 QUEST ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo completar la misión."
+                });
+
+
+        } finally {
+
+            client.release();
+
+        }
+
+    }
+);
+
+// ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
 
