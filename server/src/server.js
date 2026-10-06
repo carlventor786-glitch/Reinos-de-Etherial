@@ -768,10 +768,10 @@ app.put(
 
 
             return res.status(500).json({
-                success: false,
-                message:
-                    "No se pudo guardar el personaje."
-            });
+    success: false,
+    message:
+        "No se pudo guardar el personaje."
+});
 // ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
