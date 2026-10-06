@@ -1,4 +1,6 @@
 import express from "express";
+import http from "http";
+import { WebSocketServer } from "ws";
 import cors from "cors";
 import dotenv from "dotenv";
 import pg from "pg";
@@ -10,6 +12,7 @@ dotenv.config();
 const { Pool } = pg;
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 const GAME_ORIGIN =
@@ -221,7 +224,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "4.4.0",
+            version: "5.0.0",
             status: "online"
         });
 
@@ -253,7 +256,7 @@ app.get(
                     "Reinos de Etherial",
 
                 version:
-                    "4.3.1",
+                    "5.0.0",
 
                 server:
                     "online",
@@ -1456,6 +1459,222 @@ app.post(
 
 
 // =========================================================
+// V5.0 - CONSUMIBLES Y MUERTE AUTORITATIVOS
+// =========================================================
+
+const SERVER_CONSUMABLES = {
+    potion: { heal: 35, mana: 0 },
+    greaterPotion: { heal: 80, mana: 15 }
+};
+
+function getMaxHpForLevel(level) {
+    return 100 + ((Math.max(1, Number(level) || 1) - 1) * 10);
+}
+
+function getMaxManaForLevel(level) {
+    return 50 + ((Math.max(1, Number(level) || 1) - 1) * 5);
+}
+
+app.post(
+    "/game/use-item",
+    authenticateToken,
+    async (req, res) => {
+        const client = await pool.connect();
+
+        try {
+            const { itemId } = req.body;
+            const consumable = SERVER_CONSUMABLES[itemId];
+
+            if (!consumable) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Ese objeto no es un consumible válido."
+                });
+            }
+
+            await client.query("BEGIN");
+
+            const characterResult = await client.query(
+                `SELECT * FROM characters
+                 WHERE user_id = $1
+                 FOR UPDATE`,
+                [req.user.userId]
+            );
+
+            if (characterResult.rows.length === 0) {
+                await client.query("ROLLBACK");
+                return res.status(404).json({
+                    success: false,
+                    message: "Personaje no encontrado."
+                });
+            }
+
+            const inventoryResult = await client.query(
+                `SELECT quantity
+                 FROM character_inventory
+                 WHERE user_id = $1 AND item_id = $2
+                 FOR UPDATE`,
+                [req.user.userId, itemId]
+            );
+
+            if (
+                inventoryResult.rows.length === 0 ||
+                Number(inventoryResult.rows[0].quantity) < 1
+            ) {
+                await client.query("ROLLBACK");
+                return res.status(409).json({
+                    success: false,
+                    message: "No tienes ese consumible."
+                });
+            }
+
+            const character = characterResult.rows[0];
+            const maxHp = getMaxHpForLevel(character.level);
+            const maxMana = getMaxManaForLevel(character.level);
+
+            const newHp = Math.min(
+                maxHp,
+                Math.max(0, Number(character.hp) || 0) + consumable.heal
+            );
+
+            const newMana = Math.min(
+                maxMana,
+                Math.max(0, Number(character.mana) || 0) + consumable.mana
+            );
+
+            await client.query(
+                `UPDATE character_inventory
+                 SET quantity = quantity - 1,
+                     updated_at = NOW()
+                 WHERE user_id = $1 AND item_id = $2`,
+                [req.user.userId, itemId]
+            );
+
+            const updateResult = await client.query(
+                `UPDATE characters
+                 SET hp = $1,
+                     mana = $2,
+                     updated_at = NOW()
+                 WHERE user_id = $3
+                 RETURNING *`,
+                [newHp, newMana, req.user.userId]
+            );
+
+            const inventory = await getInventoryRows(
+                client,
+                req.user.userId
+            );
+
+            await client.query("COMMIT");
+
+            return res.status(200).json({
+                success: true,
+                itemId,
+                effect: {
+                    heal: Math.max(0, newHp - Number(character.hp)),
+                    mana: Math.max(0, newMana - Number(character.mana))
+                },
+                character: updateResult.rows[0],
+                inventory
+            });
+
+        } catch (error) {
+            try { await client.query("ROLLBACK"); } catch {}
+
+            console.error("[USE ITEM ERROR]", error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: "No se pudo usar el consumible."
+            });
+        } finally {
+            client.release();
+        }
+    }
+);
+
+app.post(
+    "/game/player-died",
+    authenticateToken,
+    async (req, res) => {
+        const client = await pool.connect();
+
+        try {
+            await client.query("BEGIN");
+
+            const characterResult = await client.query(
+                `SELECT * FROM characters
+                 WHERE user_id = $1
+                 FOR UPDATE`,
+                [req.user.userId]
+            );
+
+            if (characterResult.rows.length === 0) {
+                await client.query("ROLLBACK");
+                return res.status(404).json({
+                    success: false,
+                    message: "Personaje no encontrado."
+                });
+            }
+
+            const character = characterResult.rows[0];
+            const currentGold = Math.max(
+                0,
+                Math.floor(Number(character.gold) || 0)
+            );
+
+            const lostGold = Math.min(
+                currentGold,
+                Math.floor(currentGold * 0.10) + 10
+            );
+
+            const maxHp = getMaxHpForLevel(character.level);
+            const maxMana = getMaxManaForLevel(character.level);
+
+            const updateResult = await client.query(
+                `UPDATE characters
+                 SET gold = $1,
+                     hp = $2,
+                     mana = $3,
+                     x = 520,
+                     y = 520,
+                     zone = 'lumen',
+                     updated_at = NOW()
+                 WHERE user_id = $4
+                 RETURNING *`,
+                [
+                    currentGold - lostGold,
+                    maxHp,
+                    maxMana,
+                    req.user.userId
+                ]
+            );
+
+            await client.query("COMMIT");
+
+            return res.status(200).json({
+                success: true,
+                lostGold,
+                character: updateResult.rows[0]
+            });
+
+        } catch (error) {
+            try { await client.query("ROLLBACK"); } catch {}
+
+            console.error("[PLAYER DIED ERROR]", error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: "No se pudo procesar la muerte."
+            });
+        } finally {
+            client.release();
+        }
+    }
+);
+
+
+// =========================================================
 // V4.4 - TIENDA SEGURA DEL SERVIDOR
 // =========================================================
 //
@@ -1823,37 +2042,56 @@ const SERVER_ENEMIES = {
     slime: {
         xp: 12,
         goldMin: 2,
-        goldMax: 5
+        goldMax: 5,
+        loot: [
+            { itemId: "potion", chance: 0.12, min: 1, max: 1 }
+        ]
     },
 
     wolf: {
         xp: 20,
         goldMin: 4,
-        goldMax: 8
+        goldMax: 8,
+        loot: [
+            { itemId: "potion", chance: 0.16, min: 1, max: 1 }
+        ]
     },
 
     goblin: {
         xp: 28,
         goldMin: 6,
-        goldMax: 12
+        goldMax: 12,
+        loot: [
+            { itemId: "potion", chance: 0.20, min: 1, max: 1 }
+        ]
     },
 
     goblinWarrior: {
         xp: 36,
         goldMin: 8,
-        goldMax: 15
+        goldMax: 15,
+        loot: [
+            { itemId: "greaterPotion", chance: 0.12, min: 1, max: 1 }
+        ]
     },
 
     darkWolf: {
         xp: 34,
         goldMin: 7,
-        goldMax: 14
+        goldMax: 14,
+        loot: [
+            { itemId: "greaterPotion", chance: 0.15, min: 1, max: 1 }
+        ]
     },
 
     skeleton: {
         xp: 40,
         goldMin: 8,
-        goldMax: 16
+        goldMax: 16,
+        loot: [
+            { itemId: "greaterPotion", chance: 0.18, min: 1, max: 1 },
+            { itemId: "etherialCrystal", chance: 0.08, min: 1, max: 1 }
+        ]
     }
 
 };
@@ -2485,6 +2723,31 @@ app.post(
                 );
 
 
+            // V5.0: loot calculado y entregado por el servidor.
+            const loot = [];
+
+            for (const drop of (enemy.loot || [])) {
+                if (Math.random() <= drop.chance) {
+                    const quantity =
+                        Math.floor(
+                            Math.random() *
+                            (drop.max - drop.min + 1)
+                        ) + drop.min;
+
+                    await addInventoryItems(
+                        client,
+                        req.user.userId,
+                        { [drop.itemId]: quantity }
+                    );
+
+                    loot.push({
+                        itemId: drop.itemId,
+                        quantity
+                    });
+                }
+            }
+
+
             // Actualizar misión correspondiente.
             const questProgress =
                 await processServerQuestKill(
@@ -2521,7 +2784,15 @@ app.post(
                         updateResult.rows[0],
 
                     quest:
-                        questProgress
+                        questProgress,
+
+                    loot,
+
+                    inventory:
+                        await getInventoryRows(
+                            client,
+                            req.user.userId
+                        )
 
                 });
 
@@ -3233,6 +3504,163 @@ app.use(
 
 
 // =========================================================
+// V5.0 - MULTIJUGADOR: PRESENCIA Y MOVIMIENTO EN TIEMPO REAL
+// =========================================================
+
+const wss = new WebSocketServer({
+    server: httpServer,
+    path: "/multiplayer"
+});
+
+const onlinePlayers = new Map();
+
+function safeSend(socket, payload) {
+    if (socket.readyState === 1) {
+        socket.send(JSON.stringify(payload));
+    }
+}
+
+function broadcastPresence() {
+    const players = Array.from(onlinePlayers.values())
+        .map(entry => entry.player);
+
+    for (const entry of onlinePlayers.values()) {
+        safeSend(entry.socket, {
+            type: "presence",
+            players
+        });
+    }
+}
+
+wss.on("connection", async (socket, request) => {
+    try {
+        const requestUrl = new URL(
+            request.url,
+            "http://localhost"
+        );
+
+        const token = requestUrl.searchParams.get("token");
+
+        if (!token) {
+            socket.close(4001, "AUTH_REQUIRED");
+            return;
+        }
+
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        );
+
+        const characterResult = await pool.query(
+            `SELECT level, x, y, zone
+             FROM characters
+             WHERE user_id = $1`,
+            [decoded.userId]
+        );
+
+        if (characterResult.rows.length === 0) {
+            socket.close(4004, "CHARACTER_NOT_FOUND");
+            return;
+        }
+
+        const character = characterResult.rows[0];
+
+        const entry = {
+            socket,
+            lastMoveAt: 0,
+            player: {
+                userId: decoded.userId,
+                username: decoded.username,
+                level: Number(character.level) || 1,
+                x: Number(character.x) || 520,
+                y: Number(character.y) || 520,
+                zone: character.zone || "lumen"
+            }
+        };
+
+        onlinePlayers.set(socket, entry);
+        broadcastPresence();
+
+        socket.on("message", raw => {
+            try {
+                const message = JSON.parse(
+                    raw.toString()
+                );
+
+                if (message.type !== "move") {
+                    return;
+                }
+
+                const now = Date.now();
+
+                if (now - entry.lastMoveAt < 80) {
+                    return;
+                }
+
+                entry.lastMoveAt = now;
+
+                const x = Number(message.x);
+                const y = Number(message.y);
+                const zone = message.zone;
+
+                const allowedZones = [
+                    "lumen",
+                    "forest",
+                    "goblinCamp",
+                    "darkForest",
+                    "ruins"
+                ];
+
+                if (
+                    !Number.isFinite(x) ||
+                    !Number.isFinite(y) ||
+                    typeof zone !== "string" ||
+                    !allowedZones.includes(zone)
+                ) {
+                    return;
+                }
+
+                entry.player.x = Math.max(
+                    0,
+                    Math.min(2400, x)
+                );
+
+                entry.player.y = Math.max(
+                    0,
+                    Math.min(1600, y)
+                );
+
+                entry.player.zone = zone;
+
+                for (const other of onlinePlayers.values()) {
+                    if (other.socket === socket) continue;
+
+                    safeSend(other.socket, {
+                        type: "player-move",
+                        player: entry.player
+                    });
+                }
+
+            } catch {}
+        });
+
+        socket.on("close", () => {
+            onlinePlayers.delete(socket);
+            broadcastPresence();
+        });
+
+    } catch (error) {
+        console.error(
+            "[MULTIPLAYER AUTH ERROR]",
+            error.message
+        );
+
+        socket.close(4001, "INVALID_SESSION");
+    }
+});
+
+
+// =========================================================
 // ERROR GENERAL
 // =========================================================
 
@@ -3273,7 +3701,7 @@ async function startServer() {
         await initializeDatabase();
 
 
-        app.listen(
+        httpServer.listen(
             PORT,
             () => {
 
@@ -3286,7 +3714,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 4.4.0"
+                    "Versión: 5.0.0"
                 );
 
                 console.log(
