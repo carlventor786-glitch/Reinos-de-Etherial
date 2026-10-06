@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.2
+   REINOS DE ETHERIAL V4.3
    API.JS
 
    Capa de comunicación:
@@ -664,18 +664,15 @@ const EtherialAPI = (() => {
 
 
     /* =====================================================
-       INVENTARIO
-
-       Todavía utiliza el sistema anterior.
-       Lo conectaremos a PostgreSQL
-       en una versión posterior.
+       V4.3
+       INVENTARIO EN POSTGRESQL
     ===================================================== */
 
     async function getInventory() {
 
         return await request(
 
-            "/inventory",
+            "/game/inventory",
 
             {
 
@@ -691,22 +688,125 @@ const EtherialAPI = (() => {
 
 
     /* =====================================================
-       EQUIPAMIENTO
-
-       Se migrará posteriormente
-       al servidor.
+       V4.3
+       EQUIPAMIENTO EN POSTGRESQL
     ===================================================== */
 
     async function getEquipment() {
 
         return await request(
 
-            "/equipment",
+            "/game/equipment",
 
             {
 
                 method:
                     "GET"
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       V4.3
+       EQUIPAR OBJETO
+    ===================================================== */
+
+    async function equipItem(
+        itemId
+    ) {
+
+        if (
+            typeof itemId !==
+                "string" ||
+
+            itemId.length ===
+                0
+        ) {
+
+            throw new Error(
+                "INVALID_ITEM_ID"
+            );
+
+        }
+
+
+        return await request(
+
+            "/game/equip-item",
+
+            {
+
+                method:
+                    "POST",
+
+                body:
+                    JSON.stringify({
+
+                        itemId
+
+                    })
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
+       V4.3
+       QUITAR OBJETO EQUIPADO
+    ===================================================== */
+
+    async function unequipItem(
+        slot
+    ) {
+
+        const allowedSlots = [
+            "weapon",
+            "armor",
+            "helmet",
+            "boots"
+        ];
+
+
+        if (
+            typeof slot !==
+                "string" ||
+
+            !allowedSlots.includes(
+                slot
+            )
+        ) {
+
+            throw new Error(
+                "INVALID_EQUIPMENT_SLOT"
+            );
+
+        }
+
+
+        return await request(
+
+            "/game/unequip-item",
+
+            {
+
+                method:
+                    "POST",
+
+                body:
+                    JSON.stringify({
+
+                        slot
+
+                    })
 
             }
 
@@ -822,6 +922,10 @@ const EtherialAPI = (() => {
         getInventory,
 
         getEquipment,
+
+        equipItem,
+
+        unequipItem,
 
         getProfile,
 
