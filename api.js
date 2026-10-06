@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4
+   REINOS DE ETHERIAL V4.2
    API.JS
 
    Capa de comunicación:
@@ -405,30 +405,46 @@ const EtherialAPI = (() => {
 
     }
 
-/* =====================================================
-   V4.2 - RECOMPENSA POR ENEMIGO
-===================================================== */
 
-async function enemyKilled(
-    enemyType
-) {
+    /* =====================================================
+       V4.2 - RECOMPENSA SEGURA POR ENEMIGO
+    ===================================================== */
 
-    return await request(
-        "/game/enemy-killed",
-        {
+    async function enemyKilled(
+        enemyType
+    ) {
 
-            method: "POST",
+        if (
+            typeof enemyType !== "string" ||
+            enemyType.length === 0
+        ) {
 
-            body:
-                JSON.stringify({
-                    enemyType
-                })
+            throw new Error(
+                "INVALID_ENEMY_TYPE"
+            );
 
         }
-    );
 
-}
-   
+
+        return await request(
+            "/game/enemy-killed",
+            {
+
+                method: "POST",
+
+                body:
+                    JSON.stringify({
+
+                        enemyType
+
+                    })
+
+            }
+        );
+
+    }
+
+
     /* =====================================================
        INVENTARIO
     ===================================================== */
@@ -526,7 +542,8 @@ async function enemyKilled(
 
     function setToken(token) {
 
-        authToken = token || null;
+        authToken =
+            token || null;
 
     }
 
@@ -555,6 +572,8 @@ async function enemyKilled(
         getCharacter,
 
         saveCharacter,
+
+        enemyKilled,
 
         getInventory,
 
