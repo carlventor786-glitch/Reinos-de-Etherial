@@ -87,7 +87,247 @@ const player = {
 
     zone: WORLD_DATA.startingZone
 };
+// ==========================================
+// V4 - CARGAR PERSONAJE DESDE EL SERVIDOR
+// ==========================================
 
+function getServerNumber(value, fallback) {
+
+    const number = Number(value);
+
+    return Number.isFinite(number)
+        ? number
+        : fallback;
+}
+
+
+function calculateNextXpForLevel(level) {
+
+    let requiredXp =
+        LEVEL_CONFIG.startingXp;
+
+    for (
+        let currentLevel = 1;
+        currentLevel < level;
+        currentLevel++
+    ) {
+
+        requiredXp = Math.floor(
+            requiredXp *
+            LEVEL_CONFIG.xpMultiplier
+        );
+    }
+
+    return requiredXp;
+}
+
+
+function applyServerCharacter(character) {
+
+    if (!character) {
+
+        console.warn(
+            "[V4] No se recibió personaje del servidor."
+        );
+
+        return;
+    }
+
+
+    const level = Math.max(
+        1,
+        Math.floor(
+            getServerNumber(
+                character.level,
+                1
+            )
+        )
+    );
+
+
+    // --------------------------------------
+    // NIVEL Y EXPERIENCIA
+    // --------------------------------------
+
+    player.level = level;
+
+    player.xp = Math.max(
+        0,
+        getServerNumber(
+            character.xp,
+            0
+        )
+    );
+
+    player.nextXp =
+        calculateNextXpForLevel(level);
+
+
+    // --------------------------------------
+    // STATS DERIVADOS DEL NIVEL
+    // --------------------------------------
+
+    player.maxHp =
+        100 +
+        (
+            (level - 1) *
+            LEVEL_CONFIG.hpPerLevel
+        );
+
+    player.maxMana =
+        50 +
+        (
+            (level - 1) *
+            LEVEL_CONFIG.manaPerLevel
+        );
+
+    player.baseAttack =
+        12 +
+        (
+            (level - 1) *
+            LEVEL_CONFIG.attackPerLevel
+        );
+
+    player.baseDefense =
+        3 +
+        (
+            (level - 1) *
+            LEVEL_CONFIG.defensePerLevel
+        );
+
+
+    // --------------------------------------
+    // VIDA Y MANA
+    // --------------------------------------
+
+    player.hp = Math.max(
+        0,
+        Math.min(
+            player.maxHp,
+            getServerNumber(
+                character.hp,
+                player.maxHp
+            )
+        )
+    );
+
+    player.mana = Math.max(
+        0,
+        Math.min(
+            player.maxMana,
+            getServerNumber(
+                character.mana,
+                player.maxMana
+            )
+        )
+    );
+
+
+    // --------------------------------------
+    // ORO
+    // --------------------------------------
+
+    player.gold = Math.max(
+        0,
+        Math.floor(
+            getServerNumber(
+                character.gold,
+                0
+            )
+        )
+    );
+
+
+    // --------------------------------------
+    // POSICIÓN
+    // --------------------------------------
+
+    player.x =
+        getServerNumber(
+            character.x,
+            WORLD_DATA.startX
+        );
+
+    player.y =
+        getServerNumber(
+            character.y,
+            WORLD_DATA.startY
+        );
+
+
+    // --------------------------------------
+    // ZONA
+    // --------------------------------------
+
+    if (
+        typeof character.zone === "string" &&
+        character.zone.length > 0
+    ) {
+
+        player.zone =
+            character.zone;
+
+    } else {
+
+        player.zone =
+            WORLD_DATA.startingZone;
+    }
+
+
+    // --------------------------------------
+    // ACTUALIZAR JUEGO
+    // --------------------------------------
+
+    updateCamera();
+
+    updateZone();
+
+    updateUI();
+
+
+    console.log(
+        "☁ Personaje V4 aplicado:",
+        {
+            level: player.level,
+            xp: player.xp,
+            gold: player.gold,
+            hp: player.hp,
+            mana: player.mana,
+            x: player.x,
+            y: player.y,
+            zone: player.zone
+        }
+    );
+
+
+    addLog(
+        "☁ Personaje cargado desde el servidor."
+    );
+}
+
+
+// ==========================================
+// ESCUCHAR AUTH.JS
+// ==========================================
+
+window.addEventListener(
+    "etherial:character-ready",
+    event => {
+
+        const character =
+            event.detail?.character;
+
+        applyServerCharacter(
+            character
+        );
+    }
+);
+
+
+// Permitir acceso futuro desde auth.js
+window.EtherialGame = {
+    applyServerCharacter
+};
 
 /* =========================================================
    INVENTARIO
