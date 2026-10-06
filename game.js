@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.5
+   REINOS DE ETHERIAL V5.5.1
    GAME.JS
 ========================================================= */
 
@@ -3261,324 +3261,267 @@ function drawText(
    MAPA
 ========================================================= */
 
-function drawWorld() {
 
-    drawRect(
-        0,
-        0,
-        VIEW_WIDTH,
-        VIEW_HEIGHT,
-        "#17351f"
+/* =========================================================
+   V5.5.1 - MUNDO PIXEL MMORPG (REFERENCIA OFICIAL)
+========================================================= */
+
+function v55Hash(x, y, salt = 0) {
+    let n = Math.sin(x * 12.9898 + y * 78.233 + salt * 37.719) * 43758.5453;
+    return n - Math.floor(n);
+}
+
+function v55TileRect(wx, wy, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(
+        Math.round(screenX(wx)),
+        Math.round(screenY(wy)),
+        w,
+        h
     );
+}
 
+function v55DrawGrass() {
+    const tile = 32;
+    const firstX = Math.floor(camera.x / tile) * tile - tile;
+    const firstY = Math.floor(camera.y / tile) * tile - tile;
+    const endX = camera.x + VIEW_WIDTH + tile;
+    const endY = camera.y + VIEW_HEIGHT + tile;
 
-    /* CUADRÍCULA */
+    for (let wx = firstX; wx < endX; wx += tile) {
+        for (let wy = firstY; wy < endY; wy += tile) {
+            const r = v55Hash(wx / tile, wy / tile, 1);
+            const c = r > .72 ? "#4f913d" : r > .38 ? "#43843a" : "#397735";
+            v55TileRect(wx, wy, tile + 1, tile + 1, c);
 
-    ctx.strokeStyle =
-        "#214a2c";
-
-
-    const gridSize = 64;
-
-
-    const startX =
-        -(
-            camera.x %
-            gridSize
-        );
-
-
-    const startY =
-        -(
-            camera.y %
-            gridSize
-        );
-
-
-    for (
-        let x = startX;
-        x < VIEW_WIDTH;
-        x += gridSize
-    ) {
-
-        for (
-            let y = startY;
-            y < VIEW_HEIGHT;
-            y += gridSize
-        ) {
-
-            ctx.strokeRect(
-                x,
-                y,
-                gridSize,
-                gridSize
-            );
-
+            if (r > .83) {
+                const sx = screenX(wx) + 7 + Math.floor(r * 11);
+                const sy = screenY(wy) + 8 + Math.floor(r * 9);
+                ctx.fillStyle = "#7fbd4c";
+                ctx.fillRect(sx, sy, 3, 5);
+                ctx.fillStyle = "#f0d65d";
+                ctx.fillRect(sx + 2, sy - 1, 2, 2);
+            }
         }
+    }
+}
 
+function v55DrawStonePath(x, y, w, h) {
+    ctx.fillStyle = "#9c927d";
+    ctx.fillRect(screenX(x), screenY(y), w, h);
+
+    const step = 24;
+    for (let px = x; px < x + w; px += step) {
+        for (let py = y; py < y + h; py += 16) {
+            const sx = screenX(px) + ((Math.floor(py / 16) % 2) * 8);
+            const sy = screenY(py);
+            ctx.strokeStyle = "#746e61";
+            ctx.strokeRect(sx, sy, 22, 14);
+        }
+    }
+}
+
+function v55DrawTree(wx, wy, autumn = false) {
+    const x = screenX(wx), y = screenY(wy);
+    ctx.fillStyle = "#5b3a22";
+    ctx.fillRect(x - 5, y + 8, 10, 25);
+    ctx.fillStyle = autumn ? "#b95b25" : "#1e5b32";
+    ctx.fillRect(x - 22, y - 18, 44, 35);
+    ctx.fillStyle = autumn ? "#df7a2b" : "#287743";
+    ctx.fillRect(x - 16, y - 29, 32, 25);
+    ctx.fillStyle = autumn ? "#ef9b38" : "#3c9650";
+    ctx.fillRect(x - 9, y - 35, 18, 16);
+    ctx.fillStyle = "#73b85a";
+    ctx.fillRect(x - 16, y - 22, 5, 5);
+}
+
+function v55DrawRock(wx, wy) {
+    const x = screenX(wx), y = screenY(wy);
+    ctx.fillStyle = "#58656a";
+    ctx.fillRect(x - 12, y - 7, 24, 15);
+    ctx.fillStyle = "#748186";
+    ctx.fillRect(x - 7, y - 12, 14, 7);
+    ctx.fillStyle = "#929b98";
+    ctx.fillRect(x - 5, y - 10, 6, 4);
+}
+
+function v55DrawFlowerPatch(wx, wy) {
+    const colors = ["#f3d35a","#ef6f91","#f4f0e5","#b783df"];
+    for (let i = 0; i < 9; i++) {
+        const ox = (i * 13) % 30 - 15;
+        const oy = (i * 19) % 24 - 12;
+        ctx.fillStyle = "#275f31";
+        ctx.fillRect(screenX(wx)+ox, screenY(wy)+oy, 2, 5);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(screenX(wx)+ox-1, screenY(wy)+oy-2, 4, 3);
+    }
+}
+
+function v55DrawHouse(wx, wy, roof = "#315d9b", shop = false) {
+    const x = screenX(wx), y = screenY(wy);
+
+    ctx.fillStyle = "#d0b68b";
+    ctx.fillRect(x, y + 24, 112, 74);
+
+    ctx.fillStyle = "#6c4a31";
+    ctx.fillRect(x + 7, y + 34, 8, 64);
+    ctx.fillRect(x + 96, y + 34, 8, 64);
+
+    ctx.fillStyle = roof;
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y + 30);
+    ctx.lineTo(x + 56, y - 8);
+    ctx.lineTo(x + 122, y + 30);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#223b63";
+    for (let ry = 10; ry < 31; ry += 8) {
+        for (let rx = 0; rx < 112; rx += 18) {
+            ctx.fillRect(x + rx + (ry % 16), y + ry, 14, 5);
+        }
     }
 
+    ctx.fillStyle = "#5c351f";
+    ctx.fillRect(x + 45, y + 62, 24, 36);
+    ctx.fillStyle = "#f4b942";
+    ctx.fillRect(x + 62, y + 78, 3, 3);
 
-    /* ZONAS */
+    ctx.fillStyle = "#6eb6d8";
+    ctx.fillRect(x + 19, y + 51, 18, 17);
+    ctx.fillRect(x + 77, y + 51, 18, 17);
+    ctx.strokeStyle = "#efe4c5";
+    ctx.strokeRect(x + 19, y + 51, 18, 17);
+    ctx.strokeRect(x + 77, y + 51, 18, 17);
 
-    Object.values(ZONES)
-        .forEach(zone => {
+    if (shop) {
+        ctx.fillStyle = "#f0e7d5";
+        ctx.fillRect(x + 9, y + 34, 94, 10);
+        ctx.fillStyle = "#b93434";
+        for (let a = 9; a < 103; a += 20) {
+            ctx.fillRect(x + a, y + 34, 10, 18);
+        }
+    }
+}
 
-            const x =
-                screenX(zone.x);
+function v55DrawLamp(wx, wy) {
+    const x = screenX(wx), y = screenY(wy);
+    ctx.fillStyle = "#25262b";
+    ctx.fillRect(x - 2, y - 18, 4, 27);
+    ctx.fillStyle = "#ffb43b";
+    ctx.fillRect(x - 6, y - 25, 12, 10);
+    ctx.fillStyle = "rgba(255,190,65,.18)";
+    ctx.beginPath();
+    ctx.arc(x, y - 20, 20, 0, Math.PI * 2);
+    ctx.fill();
+}
 
-            const y =
-                screenY(zone.y);
+function v55DrawFountain(wx, wy) {
+    const x = screenX(wx), y = screenY(wy);
+    ctx.fillStyle = "#777d83";
+    ctx.beginPath(); ctx.ellipse(x, y, 50, 27, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#35aee5";
+    ctx.beginPath(); ctx.ellipse(x, y-2, 41, 20, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#8e9498";
+    ctx.fillRect(x-7, y-44, 14, 42);
+    ctx.fillStyle = "#b0b5b6";
+    ctx.fillRect(x-13, y-48, 26, 8);
+    ctx.fillStyle = "#61d1ff";
+    ctx.fillRect(x-2, y-39, 4, 30);
+}
 
+function v55DrawLumenCity() {
+    // Plaza and roads patterned after the approved V5.5 reference.
+    v55DrawStonePath(250, 250, 600, 600);
+    v55DrawStonePath(100, 500, 1000, 110);
+    v55DrawStonePath(480, 100, 110, 1000);
 
-            let color =
-                "#24462d";
+    // City buildings.
+    v55DrawHouse(300, 305, "#315d9b", false);
+    v55DrawHouse(620, 305, "#315d9b", true);
+    v55DrawHouse(300, 675, "#a94b32", false);
+    v55DrawHouse(620, 675, "#8b5b35", true);
 
+    // Central fountain.
+    v55DrawFountain(535, 555);
 
-            if (
-                zone.id ===
-                "lumen"
-            ) {
-                color = "#31543a";
-            }
+    // Decorative trees/flowerbeds.
+    const trees = [
+        [275,280],[820,285],[270,820],[820,815],
+        [405,275],[700,275],[405,825],[700,825]
+    ];
+    trees.forEach((p,i)=>v55DrawTree(p[0],p[1], i===6));
 
+    [[375,500],[690,500],[375,625],[690,625]]
+        .forEach(p=>v55DrawFlowerPatch(p[0],p[1]));
 
-            if (
-                zone.id ===
-                "goblinCamp"
-            ) {
-                color = "#4a3925";
-            }
+    [[455,455],[610,455],[455,660],[610,660]]
+        .forEach(p=>v55DrawLamp(p[0],p[1]));
+}
 
+function v55DrawWilderness() {
+    // Dense forest edge similar to the approved forest panel.
+    const clusters = [
+        [120,180],[190,220],[1000,170],[1080,240],
+        [130,950],[220,1040],[1020,960],[1110,1040],
+        [1450,300],[1530,390],[1750,210],[1880,360],
+        [1500,1120],[1660,1210],[1880,1060]
+    ];
+    clusters.forEach((p,i)=>v55DrawTree(p[0],p[1], i % 7 === 0));
 
-            if (
-                zone.id ===
-                "darkForest"
-            ) {
-                color = "#192b28";
-            }
+    const rocks = [
+        [170,360],[920,210],[1180,420],[1380,260],
+        [1520,780],[1800,930],[2060,650],[1300,1280]
+    ];
+    rocks.forEach(p=>v55DrawRock(p[0],p[1]));
 
+    const flowers = [
+        [80,520],[180,600],[920,410],[1040,880],
+        [1220,760],[1450,600],[1710,540],[1900,1160]
+    ];
+    flowers.forEach(p=>v55DrawFlowerPatch(p[0],p[1]));
+}
 
-            if (
-                zone.id ===
-                "ruins"
-            ) {
-                color = "#45434b";
-            }
+function drawWorld() {
+    // Full tiled grass foundation.
+    v55DrawGrass();
 
+    // Zone tinting kept subtle so gameplay zones remain readable.
+    Object.values(ZONES).forEach(zone => {
+        const x = screenX(zone.x);
+        const y = screenY(zone.y);
 
-            ctx.fillStyle = color;
+        let color = "rgba(35,85,45,.10)";
+        if (zone.id === "goblinCamp") color = "rgba(108,75,38,.13)";
+        if (zone.id === "darkForest") color = "rgba(16,38,31,.22)";
+        if (zone.id === "ruins") color = "rgba(69,67,75,.18)";
 
-            ctx.globalAlpha = 0.45;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, zone.width, zone.height);
+    });
 
-
-            ctx.fillRect(
-                x,
-                y,
-                zone.width,
-                zone.height
-            );
-
-
-            ctx.globalAlpha = 1;
-
-
-            drawText(
-                zone.icon +
-                " " +
-                zone.name,
-
-                x + 20,
-                y + 30,
-
-                "#ffffffaa",
-
-                14
-            );
-
-        });
-
-
+    v55DrawWilderness();
     drawVillage();
 
+    // Small zone titles, less intrusive than V5.
+    Object.values(ZONES).forEach(zone => {
+        drawText(
+            zone.icon + " " + zone.name,
+            screenX(zone.x) + 18,
+            screenY(zone.y) + 25,
+            "#fff7d6",
+            12
+        );
+    });
 }
 
 
 /* =========================================================
-   ALDEA
+   ALDEA / CIUDAD DE LUMEN V5.5.1
 ========================================================= */
 
 function drawVillage() {
-
-    // V5.5: plaza empedrada y caminos de Lumen.
-    const plazaX = screenX(250);
-    const plazaY = screenY(250);
-
-    ctx.fillStyle = "#8a806d";
-    ctx.fillRect(plazaX, plazaY, 560, 560);
-
-    ctx.strokeStyle = "#6d6658";
-    ctx.lineWidth = 1;
-
-    for (let gx = 250; gx <= 810; gx += 32) {
-        ctx.beginPath();
-        ctx.moveTo(screenX(gx), screenY(250));
-        ctx.lineTo(screenX(gx), screenY(810));
-        ctx.stroke();
-    }
-
-    for (let gy = 250; gy <= 810; gy += 32) {
-        ctx.beginPath();
-        ctx.moveTo(screenX(250), screenY(gy));
-        ctx.lineTo(screenX(810), screenY(gy));
-        ctx.stroke();
-    }
-
-    const houses = [
-
-        [330, 340],
-        [470, 330],
-        [610, 350],
-        [330, 620],
-        [620, 620]
-
-    ];
-
-
-    houses.forEach(
-        ([x, y]) => {
-
-            const sx =
-                screenX(x);
-
-            const sy =
-                screenY(y);
-
-
-            drawRect(
-                sx,
-                sy,
-                90,
-                65,
-                "#754a32"
-            );
-
-
-            drawRect(
-                sx - 8,
-                sy - 18,
-                106,
-                22,
-                "#4b2f24"
-            );
-
-
-            drawRect(
-                sx + 36,
-                sy + 35,
-                20,
-                30,
-                "#31251f"
-            );
-
-        }
-    );
-
-
-    /* FUENTE */
-
-    const fountainX =
-        screenX(520);
-
-    const fountainY =
-        screenY(560);
-
-
-    drawRect(
-        fountainX - 25,
-        fountainY - 12,
-        50,
-        24,
-        "#64748b"
-    );
-
-
-    drawRect(
-        fountainX - 18,
-        fountainY - 8,
-        36,
-        16,
-        "#38bdf8"
-    );
-
-}
-
-
-
-/* =========================================================
-   V5.5 - PIXEL MMORPG ASSETS
-========================================================= */
-
-const V55_ASSET_PATH = "assets/sprites/";
-
-const V55_IMAGES = {};
-
-[
-    "hero",
-    "guardian",
-    "merchant",
-    "healer",
-    "villager",
-    "slime",
-    "wolf",
-    "goblin",
-    "skeleton",
-    "enemy"
-].forEach(name => {
-    const image = new Image();
-    image.src = V55_ASSET_PATH + name + ".png";
-    V55_IMAGES[name] = image;
-});
-
-function drawPixelSprite(name, worldX, worldY, width, height) {
-    const image = V55_IMAGES[name];
-    if (!image || !image.complete || image.naturalWidth === 0) {
-        return false;
-    }
-
-    ctx.imageSmoothingEnabled = false;
-
-    ctx.drawImage(
-        image,
-        Math.round(screenX(worldX) - width / 2),
-        Math.round(screenY(worldY) - height / 2),
-        width,
-        height
-    );
-
-    return true;
-}
-
-function getEnemySpriteName(enemyType) {
-    const id = String(enemyType || "").toLowerCase();
-
-    if (id.includes("slime")) return "slime";
-    if (id.includes("wolf")) return "wolf";
-    if (id.includes("goblin")) return "goblin";
-    if (id.includes("skeleton")) return "skeleton";
-
-    return "enemy";
-}
-
-function getNpcSpriteName(npc) {
-    const id = String(npc?.id || "").toLowerCase();
-    const role = String(npc?.role || "").toLowerCase();
-
-    if (id.includes("mira") || role.includes("merc")) return "merchant";
-    if (id.includes("elena") || role.includes("cura")) return "healer";
-    if (role.includes("guard")) return "guardian";
-
-    return "villager";
+    v55DrawLumenCity();
 }
 
 
