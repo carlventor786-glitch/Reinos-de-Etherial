@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -15,236 +13,14 @@
 
     <meta name="theme-color" content="#080d16">
 
-    <title>Reinos de Etherial V4</title>
+    <title>Reinos de Etherial V5.5.2</title>
 
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
 
-
-<!-- ==========================================
-     PANTALLA DE AUTENTICACIÓN V4
-========================================== -->
-
-<div id="authScreen">
-
-    <div class="authBackground"></div>
-
-    <div class="authContainer">
-
-        <div class="authLogo">
-
-            <div class="authSword">
-                ⚔
-            </div>
-
-            <h1>
-                REINOS DE ETHERIAL
-            </h1>
-
-            <span class="authVersion">
-                V4
-            </span>
-
-            <p>
-                AVENTURA MMORPG
-            </p>
-
-        </div>
-
-
-        <!-- ==================================
-             LOGIN
-        =================================== -->
-
-        <div
-            id="loginPanel"
-            class="authPanel"
-        >
-
-            <h2>
-                ⚔ INICIAR SESIÓN
-            </h2>
-
-            <p class="authSubtitle">
-                Regresa a tu aventura
-            </p>
-
-
-            <label for="loginUsername">
-                Usuario
-            </label>
-
-            <input
-                id="loginUsername"
-                type="text"
-                maxlength="20"
-                autocomplete="username"
-                placeholder="Tu usuario"
-            >
-
-
-            <label for="loginPassword">
-                Contraseña
-            </label>
-
-            <input
-                id="loginPassword"
-                type="password"
-                maxlength="72"
-                autocomplete="current-password"
-                placeholder="Tu contraseña"
-            >
-
-
-            <button
-                id="loginButton"
-                class="authPrimaryButton"
-            >
-                ⚔ ENTRAR AL MUNDO
-            </button>
-
-
-            <div
-                id="loginMessage"
-                class="authMessage"
-            >
-            </div>
-
-
-            <div class="authSeparator">
-
-                <span>
-                    NUEVO AVENTURERO
-                </span>
-
-            </div>
-
-
-            <button
-                id="showRegisterButton"
-                class="authSecondaryButton"
-            >
-                CREAR CUENTA
-            </button>
-
-        </div>
-
-
-        <!-- ==================================
-             REGISTRO
-        =================================== -->
-
-        <div
-            id="registerPanel"
-            class="authPanel hidden"
-        >
-
-            <h2>
-                🛡 CREAR CUENTA
-            </h2>
-
-            <p class="authSubtitle">
-                Comienza tu leyenda
-            </p>
-
-
-            <label for="registerUsername">
-                Usuario
-            </label>
-
-            <input
-                id="registerUsername"
-                type="text"
-                maxlength="20"
-                autocomplete="username"
-                placeholder="3 a 20 caracteres"
-            >
-
-
-            <label for="registerPassword">
-                Contraseña
-            </label>
-
-            <input
-                id="registerPassword"
-                type="password"
-                maxlength="72"
-                autocomplete="new-password"
-                placeholder="Mínimo 8 caracteres"
-            >
-
-
-            <label for="registerPasswordConfirm">
-                Confirmar contraseña
-            </label>
-
-            <input
-                id="registerPasswordConfirm"
-                type="password"
-                maxlength="72"
-                autocomplete="new-password"
-                placeholder="Repite tu contraseña"
-            >
-
-
-            <button
-                id="registerButton"
-                class="authPrimaryButton"
-            >
-                🛡 CREAR AVENTURERO
-            </button>
-
-
-            <div
-                id="registerMessage"
-                class="authMessage"
-            >
-            </div>
-
-
-            <button
-                id="showLoginButton"
-                class="authSecondaryButton"
-            >
-                ← VOLVER AL LOGIN
-            </button>
-
-        </div>
-
-
-        <!-- ==================================
-             ESTADO DEL SERVIDOR
-        =================================== -->
-
-        <div class="serverStatus">
-
-            <span
-                id="serverStatusDot"
-                class="serverStatusDot"
-            >
-            </span>
-
-            <span id="serverStatusText">
-                Comprobando servidor...
-            </span>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-
-<!-- ==========================================
-     JUEGO
-========================================== -->
-
 <div id="gameShell">
-
 
     <!-- ===============================
          CABECERA
@@ -258,24 +34,20 @@
                 ⚔ REINOS DE ETHERIAL
             </h1>
 
-            <span class="version">
-                V4
-            </span>
+            <span class="version">V5.5.2</span>
 
         </div>
-
 
         <div id="zoneDisplay">
             🌲 Bosques de Lumen
         </div>
 
-
+        <div id="mmorpgPortrait"><img src="assets/sprites/hero.png" alt=""></div>
         <div id="playerMini">
             Nv. 1 · ❤️ 100/100 · 💰 50
         </div>
 
     </header>
-
 
 
     <!-- ===============================
@@ -289,10 +61,22 @@
             <canvas
                 id="gameCanvas"
                 width="960"
-                height="540"
-            >
+                height="540">
             </canvas>
 
+
+            <div id="miniMap">
+                <div class="miniMapTitle">LUMEN</div>
+                <div class="miniMapWorld">
+                    <span class="miniRoad r1"></span>
+                    <span class="miniRoad r2"></span>
+                    <span class="miniBuilding b1"></span>
+                    <span class="miniBuilding b2"></span>
+                    <span class="miniBuilding b3"></span>
+                    <span class="miniBuilding b4"></span>
+                    <span class="miniPlayer"></span>
+                </div>
+            </div>
 
             <!-- INFORMACIÓN DEL OBJETIVO -->
 
@@ -304,13 +88,13 @@
 
                 <div class="targetBar">
 
-                    <div id="targetHpBar">
+                    <div
+                        id="targetHpBar">
                     </div>
 
                 </div>
 
             </div>
-
 
 
             <!-- CONTROLES MÓVILES -->
@@ -321,8 +105,7 @@
 
                     <button
                         class="moveButton"
-                        data-key="arrowup"
-                    >
+                        data-key="arrowup">
                         ▲
                     </button>
 
@@ -333,22 +116,19 @@
 
                     <button
                         class="moveButton"
-                        data-key="arrowleft"
-                    >
+                        data-key="arrowleft">
                         ◀
                     </button>
 
                     <button
                         class="moveButton"
-                        data-key="arrowdown"
-                    >
+                        data-key="arrowdown">
                         ▼
                     </button>
 
                     <button
                         class="moveButton"
-                        data-key="arrowright"
-                    >
+                        data-key="arrowright">
                         ▶
                     </button>
 
@@ -357,27 +137,25 @@
             </div>
 
 
-
             <!-- ACCIONES -->
 
             <div id="actionButtons">
 
                 <button id="attackButton">
-                    ⚔ ATACAR
+                    ⚔<small>1</small>
                 </button>
 
                 <button id="interactButton">
-                    💬 INTERACTUAR
+                    💬<small>2</small>
                 </button>
 
                 <button id="potionButton">
-                    🧪 POCIÓN
+                    🧪<small>3</small>
                 </button>
 
             </div>
 
         </section>
-
 
 
         <!-- ===============================
@@ -398,9 +176,7 @@
 
                 <div class="stat">
 
-                    <span>
-                        Nivel
-                    </span>
+                    <span>Nivel</span>
 
                     <strong id="levelValue">
                         1
@@ -411,9 +187,7 @@
 
                 <div class="stat">
 
-                    <span>
-                        ⚔ Ataque
-                    </span>
+                    <span>⚔ Ataque</span>
 
                     <strong id="attackValue">
                         18
@@ -424,9 +198,7 @@
 
                 <div class="stat">
 
-                    <span>
-                        🛡 Defensa
-                    </span>
+                    <span>🛡 Defensa</span>
 
                     <strong id="defenseValue">
                         5
@@ -437,9 +209,7 @@
 
                 <div class="stat">
 
-                    <span>
-                        💰 Oro
-                    </span>
+                    <span>💰 Oro</span>
 
                     <strong id="goldValue">
                         50
@@ -448,14 +218,11 @@
                 </div>
 
 
-
                 <!-- HP -->
 
                 <div class="resourceText">
 
-                    <span>
-                        ❤️ HP
-                    </span>
+                    <span>❤️ HP</span>
 
                     <span id="hpText">
                         100 / 100
@@ -463,26 +230,21 @@
 
                 </div>
 
-
                 <div class="resourceBar">
 
                     <div
                         id="hpBar"
-                        class="hp"
-                    >
+                        class="hp">
                     </div>
 
                 </div>
-
 
 
                 <!-- MANA -->
 
                 <div class="resourceText">
 
-                    <span>
-                        🔷 Mana
-                    </span>
+                    <span>🔷 Mana</span>
 
                     <span id="manaText">
                         50 / 50
@@ -490,26 +252,21 @@
 
                 </div>
 
-
                 <div class="resourceBar">
 
                     <div
                         id="manaBar"
-                        class="mana"
-                    >
+                        class="mana">
                     </div>
 
                 </div>
-
 
 
                 <!-- EXP -->
 
                 <div class="resourceText">
 
-                    <span>
-                        ✨ EXP
-                    </span>
+                    <span>✨ EXP</span>
 
                     <span id="xpText">
                         0 / 100
@@ -517,19 +274,16 @@
 
                 </div>
 
-
                 <div class="resourceBar">
 
                     <div
                         id="xpBar"
-                        class="xp"
-                    >
+                        class="xp">
                     </div>
 
                 </div>
 
             </section>
-
 
 
             <!-- EQUIPAMIENTO -->
@@ -540,17 +294,13 @@
                     🛡 EQUIPAMIENTO
                 </h2>
 
-
                 <div id="equipment">
 
                     <button
                         class="equipmentSlot"
-                        data-slot="weapon"
-                    >
+                        data-slot="weapon">
 
-                        <span>
-                            ⚔ Arma
-                        </span>
+                        <span>⚔ Arma</span>
 
                         <strong id="weaponSlot">
                             Espada vieja
@@ -561,12 +311,9 @@
 
                     <button
                         class="equipmentSlot"
-                        data-slot="armor"
-                    >
+                        data-slot="armor">
 
-                        <span>
-                            🥋 Armadura
-                        </span>
+                        <span>🥋 Armadura</span>
 
                         <strong id="armorSlot">
                             Ropa de viajero
@@ -577,12 +324,9 @@
 
                     <button
                         class="equipmentSlot"
-                        data-slot="helmet"
-                    >
+                        data-slot="helmet">
 
-                        <span>
-                            ⛑ Casco
-                        </span>
+                        <span>⛑ Casco</span>
 
                         <strong id="helmetSlot">
                             Vacío
@@ -593,12 +337,9 @@
 
                     <button
                         class="equipmentSlot"
-                        data-slot="boots"
-                    >
+                        data-slot="boots">
 
-                        <span>
-                            🥾 Botas
-                        </span>
+                        <span>🥾 Botas</span>
 
                         <strong id="bootsSlot">
                             Vacío
@@ -609,7 +350,6 @@
                 </div>
 
             </section>
-
 
 
             <!-- INVENTARIO -->
@@ -628,12 +368,10 @@
 
                 </div>
 
-
                 <div id="inventory">
                 </div>
 
             </section>
-
 
 
             <!-- MISIÓN -->
@@ -643,7 +381,6 @@
                 <h2>
                     📜 MISIÓN ACTIVA
                 </h2>
-
 
                 <div id="questPanel">
 
@@ -665,8 +402,7 @@
             </section>
 
 
-
-            <!-- REGISTRO DEL JUEGO -->
+            <!-- REGISTRO -->
 
             <section class="panel">
 
@@ -684,22 +420,19 @@
     </main>
 
 
-
     <!-- ===============================
          VENTANA NPC
     ================================ -->
 
     <div
         id="dialogWindow"
-        class="modal hidden"
-    >
+        class="modal hidden">
 
         <div class="modalContent">
 
             <button
                 id="closeDialog"
-                class="closeButton"
-            >
+                class="closeButton">
                 ×
             </button>
 
@@ -718,30 +451,25 @@
     </div>
 
 
-
     <!-- ===============================
          TIENDA
     ================================ -->
 
     <div
         id="shopWindow"
-        class="modal hidden"
-    >
+        class="modal hidden">
 
         <div class="modalContent shopContent">
 
             <button
                 id="closeShop"
-                class="closeButton"
-            >
+                class="closeButton">
                 ×
             </button>
-
 
             <h2>
                 🏪 Tienda de Lumen
             </h2>
-
 
             <p class="shopGold">
 
@@ -753,7 +481,6 @@
 
             </p>
 
-
             <div id="shopItems">
             </div>
 
@@ -762,20 +489,17 @@
     </div>
 
 
-
     <!-- ===============================
          MENSAJE NIVEL
     ================================ -->
 
     <div
         id="levelUpMessage"
-        class="levelUp hidden"
-    >
+        class="levelUp hidden">
 
         ✨ ¡NIVEL AUMENTADO! ✨
 
     </div>
-
 
 
     <!-- ===============================
@@ -785,14 +509,11 @@
     <footer>
 
         <span>
-
             WASD/Flechas mover ·
             Espacio atacar ·
             E interactuar ·
             P poción
-
         </span>
-
 
         <div>
 
@@ -811,16 +532,14 @@
 </div>
 
 
-
-<!-- ==========================================
-     ARCHIVOS REINOS DE ETHERIAL V4
-========================================== -->
+<!-- ===============================
+     ARCHIVOS V3
+================================ -->
 
 <script src="config.js"></script>
 <script src="data.js"></script>
 <script src="api.js"></script>
 <script src="game.js"></script>
-<script src="auth.js"></script>
-</body>
 
+</body>
 </html>
