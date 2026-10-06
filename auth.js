@@ -143,19 +143,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 await EtherialAPI.healthCheck();
 
             if (
-                result &&
-                result.success
-            ) {
+    result &&
+    result.online === true &&
+    result.data &&
+    result.data.success === true &&
+    result.data.database === "connected"
+) {
 
-                serverStatusDot.classList.add(
-                    "online"
-                );
+    serverStatusDot.classList.add(
+        "online"
+    );
 
-                serverStatusText.textContent =
-                    "Servidor Online";
+    serverStatusText.textContent =
+        "Servidor Online";
 
-                return;
-            }
+    return;
+}
 
             throw new Error(
                 "Servidor no disponible"
