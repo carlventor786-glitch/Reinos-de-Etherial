@@ -133,6 +133,46 @@ async function initializeDatabase() {
         `);
 
 
+
+        // =================================================
+        // V4.3 - INVENTARIO Y EQUIPAMIENTO
+        // =================================================
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS character_inventory (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL
+                    REFERENCES users(id)
+                    ON DELETE CASCADE,
+                item_id VARCHAR(80) NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 0
+                    CHECK (quantity >= 0),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, item_id)
+            );
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS character_equipment (
+                user_id INTEGER PRIMARY KEY
+                    REFERENCES users(id)
+                    ON DELETE CASCADE,
+                weapon VARCHAR(80),
+                armor VARCHAR(80),
+                helmet VARCHAR(80),
+                boots VARCHAR(80),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        await pool.query(`
+            INSERT INTO character_equipment (user_id)
+            SELECT id FROM users
+            ON CONFLICT (user_id) DO NOTHING;
+        `);
+
+
         console.log(
             "✅ Base de datos inicializada."
         );
@@ -147,6 +187,14 @@ async function initializeDatabase() {
 
         console.log(
             "✅ Tabla character_quests lista."
+        );
+
+        console.log(
+            "✅ Tabla character_inventory lista."
+        );
+
+        console.log(
+            "✅ Tabla character_equipment lista."
         );
 
 
@@ -173,7 +221,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "4.2.0",
+            version: "4.3.0",
             status: "online"
         });
 
@@ -205,7 +253,7 @@ app.get(
                     "Reinos de Etherial",
 
                 version:
-                    "4.2.0",
+                    "4.3.0",
 
                 server:
                     "online",
@@ -1096,6 +1144,313 @@ app.put(
 
         }
 
+    }
+);
+
+
+// =========================================================
+// V4.3 - INVENTARIO / EQUIPAMIENTO
+// =========================================================
+
+const EQUIPMENT_SLOTS = [
+    "weapon",
+    "armor",
+    "helmet",
+    "boots"
+];
+
+const EQUIPPABLE_ITEMS = {
+    ironSword: "weapon",
+    etherialSword: "weapon",
+    leatherHelmet: "helmet",
+    hunterBoots: "boots"
+};
+
+async function addInventoryItems(
+    client,
+    userId,
+    items = {}
+) {
+    for (const [itemId, rawAmount] of Object.entries(items)) {
+        const amount = Math.floor(Number(rawAmount));
+
+        if (
+            typeof itemId !== "string" ||
+            itemId.length === 0 ||
+            !Number.isInteger(amount) ||
+            amount <= 0
+        ) {
+            continue;
+        }
+
+        await client.query(
+            `
+                INSERT INTO character_inventory
+                    (user_id, item_id, quantity)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id, item_id)
+                DO UPDATE SET
+                    quantity =
+                        character_inventory.quantity +
+                        EXCLUDED.quantity,
+                    updated_at = NOW()
+            `,
+            [userId, itemId, amount]
+        );
+    }
+}
+
+async function getInventoryRows(client, userId) {
+    const result = await client.query(
+        `
+            SELECT item_id, quantity
+            FROM character_inventory
+            WHERE user_id = $1
+              AND quantity > 0
+            ORDER BY item_id ASC
+        `,
+        [userId]
+    );
+
+    return result.rows;
+}
+
+async function getEquipmentRow(client, userId) {
+    const result = await client.query(
+        `
+            INSERT INTO character_equipment (user_id)
+            VALUES ($1)
+            ON CONFLICT (user_id)
+            DO UPDATE SET user_id = EXCLUDED.user_id
+            RETURNING
+                weapon,
+                armor,
+                helmet,
+                boots,
+                updated_at
+        `,
+        [userId]
+    );
+
+    return result.rows[0];
+}
+
+app.get(
+    "/game/inventory",
+    authenticateToken,
+    async (req, res) => {
+        try {
+            const inventory =
+                await getInventoryRows(
+                    pool,
+                    req.user.userId
+                );
+
+            return res.status(200).json({
+                success: true,
+                inventory
+            });
+        } catch (error) {
+            console.error(
+                "[GET INVENTORY ERROR]",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo cargar el inventario."
+            });
+        }
+    }
+);
+
+app.get(
+    "/game/equipment",
+    authenticateToken,
+    async (req, res) => {
+        try {
+            const equipment =
+                await getEquipmentRow(
+                    pool,
+                    req.user.userId
+                );
+
+            return res.status(200).json({
+                success: true,
+                equipment
+            });
+        } catch (error) {
+            console.error(
+                "[GET EQUIPMENT ERROR]",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo cargar el equipamiento."
+            });
+        }
+    }
+);
+
+app.post(
+    "/game/equip-item",
+    authenticateToken,
+    async (req, res) => {
+        const client = await pool.connect();
+
+        try {
+            const { itemId } = req.body;
+            const slot = EQUIPPABLE_ITEMS[itemId];
+
+            if (!slot) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Ese objeto no se puede equipar."
+                });
+            }
+
+            await client.query("BEGIN");
+
+            const inventoryResult =
+                await client.query(
+                    `
+                        SELECT quantity
+                        FROM character_inventory
+                        WHERE user_id = $1
+                          AND item_id = $2
+                        FOR UPDATE
+                    `,
+                    [
+                        req.user.userId,
+                        itemId
+                    ]
+                );
+
+            if (
+                inventoryResult.rows.length === 0 ||
+                Number(
+                    inventoryResult.rows[0].quantity
+                ) < 1
+            ) {
+                await client.query("ROLLBACK");
+
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "No tienes ese objeto."
+                });
+            }
+
+            await getEquipmentRow(
+                client,
+                req.user.userId
+            );
+
+            await client.query(
+                `
+                    UPDATE character_equipment
+                    SET ${slot} = $1,
+                        updated_at = NOW()
+                    WHERE user_id = $2
+                `,
+                [
+                    itemId,
+                    req.user.userId
+                ]
+            );
+
+            const equipment =
+                await getEquipmentRow(
+                    client,
+                    req.user.userId
+                );
+
+            await client.query("COMMIT");
+
+            return res.status(200).json({
+                success: true,
+                itemId,
+                slot,
+                equipment
+            });
+        } catch (error) {
+            try {
+                await client.query("ROLLBACK");
+            } catch {}
+
+            console.error(
+                "[EQUIP ITEM ERROR]",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo equipar el objeto."
+            });
+        } finally {
+            client.release();
+        }
+    }
+);
+
+app.post(
+    "/game/unequip-item",
+    authenticateToken,
+    async (req, res) => {
+        try {
+            const { slot } = req.body;
+
+            if (!EQUIPMENT_SLOTS.includes(slot)) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Ranura de equipo inválida."
+                });
+            }
+
+            await getEquipmentRow(
+                pool,
+                req.user.userId
+            );
+
+            await pool.query(
+                `
+                    UPDATE character_equipment
+                    SET ${slot} = NULL,
+                        updated_at = NOW()
+                    WHERE user_id = $1
+                `,
+                [req.user.userId]
+            );
+
+            const equipment =
+                await getEquipmentRow(
+                    pool,
+                    req.user.userId
+                );
+
+            return res.status(200).json({
+                success: true,
+                slot,
+                equipment
+            });
+        } catch (error) {
+            console.error(
+                "[UNEQUIP ITEM ERROR]",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo quitar el objeto."
+            });
+        }
     }
 );
 
@@ -2365,6 +2720,16 @@ app.post(
                 );
 
 
+            // V4.3: los objetos de misión se guardan
+            // directamente en PostgreSQL dentro de la
+            // misma transacción que XP/oro/rewarded.
+            await addInventoryItems(
+                client,
+                req.user.userId,
+                quest.items || {}
+            );
+
+
             // Marcar recompensa como cobrada.
             // Esto evita cobrarla otra vez.
 
@@ -2419,7 +2784,19 @@ app.post(
                     },
 
                     character:
-                        updateResult.rows[0]
+                        updateResult.rows[0],
+
+                    inventory:
+                        await getInventoryRows(
+                            client,
+                            req.user.userId
+                        ),
+
+                    equipment:
+                        await getEquipmentRow(
+                            client,
+                            req.user.userId
+                        )
 
                 });
 
@@ -2542,7 +2919,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 4.2.0"
+                    "Versión: 4.3.0"
                 );
 
                 console.log(
