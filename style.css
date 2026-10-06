@@ -67,3 +67,8 @@ footer{display:none}
  .panel,.panel:nth-child(n){position:static!important;width:auto!important;max-height:none;margin:6px}
  #actionButtons{bottom:6px}#mobileControls{bottom:5px;left:5px}
 }
+
+.zoomControls{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px;background:#0b1016;border-top:1px solid #665234}
+.zoomControls button{width:28px;height:23px;padding:0;background:#202a33;border:1px solid #7a6847;color:#f3d477;font-weight:bold;cursor:pointer}
+.zoomControls button:hover{background:#35424d;border-color:#e0b85c}
+#zoomValue{min-width:38px;text-align:center;font-size:9px;color:#f0e1b5}
