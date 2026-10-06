@@ -596,6 +596,188 @@ app.get(
     }
 );
 // ==========================================
+// GUARDAR ESTADO SEGURO DEL PERSONAJE
+// ==========================================
+
+app.put(
+    "/character",
+    authenticateToken,
+    async (req, res) => {
+
+        try {
+
+            const {
+                hp,
+                mana,
+                x,
+                y,
+                zone
+            } = req.body;
+
+
+            // ----------------------------------
+            // CONVERTIR Y VALIDAR NÚMEROS
+            // ----------------------------------
+
+            const safeHp = Number(hp);
+            const safeMana = Number(mana);
+            const safeX = Number(x);
+            const safeY = Number(y);
+
+
+            if (
+                !Number.isFinite(safeHp) ||
+                !Number.isFinite(safeMana) ||
+                !Number.isFinite(safeX) ||
+                !Number.isFinite(safeY)
+            ) {
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Estado del personaje inválido."
+                });
+
+            }
+
+
+            // ----------------------------------
+            // VALIDAR ZONA
+            // ----------------------------------
+
+            const allowedZones = [
+                "lumen",
+                "forest",
+                "goblinCamp",
+                "darkForest",
+                "ruins"
+            ];
+
+
+            if (
+                typeof zone !== "string" ||
+                !allowedZones.includes(zone)
+            ) {
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Zona inválida."
+                });
+
+            }
+
+
+            // ----------------------------------
+            // LIMITAR POSICIÓN AL MAPA
+            // ----------------------------------
+
+            const safePositionX =
+                Math.max(
+                    0,
+                    Math.min(2400, safeX)
+                );
+
+            const safePositionY =
+                Math.max(
+                    0,
+                    Math.min(1600, safeY)
+                );
+
+
+            // ----------------------------------
+            // LIMITAR HP Y MANA
+            // ----------------------------------
+
+            const safeHealth =
+                Math.max(
+                    0,
+                    Math.floor(safeHp)
+                );
+
+            const safeMagic =
+                Math.max(
+                    0,
+                    Math.floor(safeMana)
+                );
+
+
+            // ----------------------------------
+            // ACTUALIZAR POSTGRESQL
+            // ----------------------------------
+
+            const result = await pool.query(
+                `
+                    UPDATE characters
+
+                    SET
+                        hp = $1,
+                        mana = $2,
+                        x = $3,
+                        y = $4,
+                        zone = $5,
+                        updated_at = NOW()
+
+                    WHERE user_id = $6
+
+                    RETURNING
+                        id,
+                        user_id,
+                        level,
+                        xp,
+                        gold,
+                        hp,
+                        mana,
+                        x,
+                        y,
+                        zone,
+                        updated_at
+                `,
+                [
+                    safeHealth,
+                    safeMagic,
+                    safePositionX,
+                    safePositionY,
+                    zone,
+                    req.user.userId
+                ]
+            );
+
+
+            if (result.rows.length === 0) {
+
+                return res.status(404).json({
+                    success: false,
+                    message: "Personaje no encontrado."
+                });
+
+            }
+
+
+            return res.status(200).json({
+                success: true,
+                message: "Personaje guardado.",
+                character: result.rows[0]
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "[SAVE CHARACTER ERROR]",
+                error.message
+            );
+
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "No se pudo guardar el personaje."
+            );
+
+        }
+
+    }
+);
+// ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
 
