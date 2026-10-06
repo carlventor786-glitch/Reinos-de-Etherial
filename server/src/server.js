@@ -221,7 +221,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "4.3.0",
+            version: "4.3.1",
             status: "online"
         });
 
@@ -253,7 +253,7 @@ app.get(
                     "Reinos de Etherial",
 
                 version:
-                    "4.3.0",
+                    "4.3.1",
 
                 server:
                     "online",
@@ -1763,26 +1763,14 @@ async function processServerQuestKill(
         );
 
 
-    for (
-        const questId
-        of questIds
-    ) {
-
-        const quest =
-            SERVER_QUESTS[
-                questId
-            ];
+    // V4.3.1:
+    // Primero encontramos la ÚNICA misión activa de la cadena.
+    // Una misión recompensada jamás vuelve a ser la misión activa.
+    let activeQuestId = null;
+    let activeState = null;
 
 
-        if (
-            quest.type !== "kill" ||
-            quest.target !== enemyType
-        ) {
-
-            continue;
-
-        }
-
+    for (const questId of questIds) {
 
         const previousComplete =
             await previousQuestRewarded(
@@ -1793,13 +1781,11 @@ async function processServerQuestKill(
 
 
         if (!previousComplete) {
-
-            return null;
-
+            break;
         }
 
 
-        let state =
+        const state =
             await getOrCreateQuestState(
                 client,
                 userId,
@@ -1807,122 +1793,144 @@ async function processServerQuestKill(
             );
 
 
-        if (
-            state.completed ||
-            state.rewarded
-        ) {
-
-            return {
-
-                questId,
-
-                progress:
-                    Number(
-                        state.progress
-                    ),
-
-                amount:
-                    quest.amount,
-
-                completed:
-                    Boolean(
-                        state.completed
-                    ),
-
-                rewarded:
-                    Boolean(
-                        state.rewarded
-                    )
-
-            };
-
+        if (state.rewarded === true) {
+            continue;
         }
 
 
-        const newProgress =
-            Math.min(
-                Number(
-                    state.progress
-                ) + 1,
+        activeQuestId =
+            questId;
 
-                quest.amount
-            );
+        activeState =
+            state;
 
-
-        const completed =
-            newProgress >=
-            quest.amount;
+        break;
+    }
 
 
-        const updateResult =
-            await client.query(
-                `
-                    UPDATE character_quests
-
-                    SET
-                        progress = $1,
-
-                        completed = $2,
-
-                        completed_at =
-                            CASE
-                                WHEN $2 = TRUE
-                                THEN COALESCE(
-                                    completed_at,
-                                    NOW()
-                                )
-                                ELSE completed_at
-                            END,
-
-                        updated_at = NOW()
-
-                    WHERE
-                        user_id = $3
-                        AND quest_id = $4
-
-                    RETURNING *
-                `,
-                [
-                    newProgress,
-                    completed,
-                    userId,
-                    questId
-                ]
-            );
+    if (!activeQuestId || !activeState) {
+        return null;
+    }
 
 
-        state =
-            updateResult.rows[0];
+    const quest =
+        SERVER_QUESTS[
+            activeQuestId
+        ];
 
+
+    // Si la misión activa no es de matar,
+    // o el enemigo no corresponde, no se modifica
+    // ni se devuelve una misión anterior.
+    if (
+        quest.type !== "kill" ||
+        quest.target !== enemyType
+    ) {
+        return null;
+    }
+
+
+    // Si ya está completada pero aún no cobrada,
+    // devolvemos solamente ESTA misión activa.
+    if (activeState.completed === true) {
 
         return {
-
-            questId,
+            questId:
+                activeQuestId,
 
             progress:
                 Number(
-                    state.progress
+                    activeState.progress
                 ),
 
             amount:
                 quest.amount,
 
             completed:
-                Boolean(
-                    state.completed
-                ),
+                true,
 
             rewarded:
-                Boolean(
-                    state.rewarded
-                )
-
+                false
         };
-
     }
 
 
-    return null;
+    const newProgress =
+        Math.min(
+            Number(
+                activeState.progress
+            ) + 1,
+            quest.amount
+        );
+
+
+    const completed =
+        newProgress >=
+        quest.amount;
+
+
+    const updateResult =
+        await client.query(
+            `
+                UPDATE character_quests
+
+                SET
+                    progress = $1,
+                    completed = $2,
+
+                    completed_at =
+                        CASE
+                            WHEN $2 = TRUE
+                            THEN COALESCE(
+                                completed_at,
+                                NOW()
+                            )
+                            ELSE completed_at
+                        END,
+
+                    updated_at = NOW()
+
+                WHERE
+                    user_id = $3
+                    AND quest_id = $4
+
+                RETURNING *
+            `,
+            [
+                newProgress,
+                completed,
+                userId,
+                activeQuestId
+            ]
+        );
+
+
+    const state =
+        updateResult.rows[0];
+
+
+    return {
+        questId:
+            activeQuestId,
+
+        progress:
+            Number(
+                state.progress
+            ),
+
+        amount:
+            quest.amount,
+
+        completed:
+            Boolean(
+                state.completed
+            ),
+
+        rewarded:
+            Boolean(
+                state.rewarded
+            )
+    };
 }
 
 
@@ -2919,7 +2927,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 4.3.0"
+                    "Versión: 4.3.1"
                 );
 
                 console.log(
