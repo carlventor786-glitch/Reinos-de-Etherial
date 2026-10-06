@@ -221,7 +221,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "4.3.1",
+            version: "4.4.0",
             status: "online"
         });
 
@@ -1451,6 +1451,365 @@ app.post(
                     "No se pudo quitar el objeto."
             });
         }
+    }
+);
+
+
+// =========================================================
+// V4.4 - TIENDA SEGURA DEL SERVIDOR
+// =========================================================
+//
+// IMPORTANTE:
+// El cliente SOLO envía itemId.
+// El precio real vive aquí y nunca se acepta desde el navegador.
+//
+
+const SERVER_SHOP_ITEMS = {
+    potion: {
+        price: 20
+    },
+
+    greaterPotion: {
+        price: 55
+    },
+
+    leatherHelmet: {
+        price: 140
+    },
+
+    hunterBoots: {
+        price: 220
+    },
+
+    ironSword: {
+        price: 300
+    }
+};
+
+
+app.get(
+    "/game/shop",
+    authenticateToken,
+    async (req, res) => {
+
+        try {
+
+            const items =
+                Object.entries(
+                    SERVER_SHOP_ITEMS
+                ).map(
+                    ([itemId, data]) => ({
+                        itemId,
+                        price: data.price
+                    })
+                );
+
+
+            return res
+                .status(200)
+                .json({
+                    success: true,
+                    items
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "[GET SHOP ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo cargar la tienda."
+                });
+
+        }
+
+    }
+);
+
+
+app.post(
+    "/game/shop/buy",
+    authenticateToken,
+    async (req, res) => {
+
+        const client =
+            await pool.connect();
+
+
+        try {
+
+            const {
+                itemId
+            } = req.body;
+
+
+            if (
+                typeof itemId !== "string" ||
+                !SERVER_SHOP_ITEMS[itemId]
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "Objeto de tienda inválido."
+                    });
+
+            }
+
+
+            const shopItem =
+                SERVER_SHOP_ITEMS[itemId];
+
+
+            const price =
+                Math.floor(
+                    Number(shopItem.price)
+                );
+
+
+            if (
+                !Number.isInteger(price) ||
+                price <= 0
+            ) {
+
+                return res
+                    .status(500)
+                    .json({
+                        success: false,
+                        message:
+                            "Precio de tienda inválido."
+                    });
+
+            }
+
+
+            await client.query(
+                "BEGIN"
+            );
+
+
+            // Bloqueamos el personaje para evitar
+            // compras simultáneas gastando el mismo oro.
+            const characterResult =
+                await client.query(
+                    `
+                        SELECT
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            updated_at
+
+                        FROM characters
+
+                        WHERE user_id = $1
+
+                        FOR UPDATE
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            if (
+                characterResult.rows.length === 0
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(404)
+                    .json({
+                        success: false,
+                        message:
+                            "Personaje no encontrado."
+                    });
+
+            }
+
+
+            const character =
+                characterResult.rows[0];
+
+
+            const currentGold =
+                Math.max(
+                    0,
+                    Math.floor(
+                        Number(character.gold) || 0
+                    )
+                );
+
+
+            if (
+                currentGold < price
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(409)
+                    .json({
+                        success: false,
+                        message:
+                            "No tienes suficiente oro.",
+                        requiredGold:
+                            price,
+                        currentGold
+                    });
+
+            }
+
+
+            const newGold =
+                currentGold - price;
+
+
+            const updateResult =
+                await client.query(
+                    `
+                        UPDATE characters
+
+                        SET
+                            gold = $1,
+                            updated_at = NOW()
+
+                        WHERE user_id = $2
+
+                        RETURNING
+                            id,
+                            user_id,
+                            level,
+                            xp,
+                            gold,
+                            hp,
+                            mana,
+                            x,
+                            y,
+                            zone,
+                            updated_at
+                    `,
+                    [
+                        newGold,
+                        req.user.userId
+                    ]
+                );
+
+
+            // La entrega del objeto ocurre dentro de
+            // la MISMA transacción que el descuento.
+            await addInventoryItems(
+                client,
+                req.user.userId,
+                {
+                    [itemId]: 1
+                }
+            );
+
+
+            const inventory =
+                await getInventoryRows(
+                    client,
+                    req.user.userId
+                );
+
+
+            const equipment =
+                await getEquipmentRow(
+                    client,
+                    req.user.userId
+                );
+
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            return res
+                .status(200)
+                .json({
+                    success: true,
+
+                    purchase: {
+                        itemId,
+                        quantity: 1,
+                        price
+                    },
+
+                    character:
+                        updateResult.rows[0],
+
+                    inventory,
+
+                    equipment
+                });
+
+
+        } catch (error) {
+
+            try {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+            } catch (
+                rollbackError
+            ) {
+
+                console.error(
+                    "[SHOP ROLLBACK ERROR]",
+                    rollbackError.message
+                );
+
+            }
+
+
+            console.error(
+                "[SHOP BUY ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo completar la compra."
+                });
+
+
+        } finally {
+
+            client.release();
+
+        }
+
     }
 );
 
@@ -2927,7 +3286,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 4.3.1"
+                    "Versión: 4.4.0"
                 );
 
                 console.log(
