@@ -34,7 +34,56 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
+// ================================
+// CREAR TABLAS DE LA BASE DE DATOS
+// ================================
 
+async function initializeDatabase() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(30) UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS characters (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER UNIQUE NOT NULL
+                    REFERENCES users(id)
+                    ON DELETE CASCADE,
+
+                level INTEGER NOT NULL DEFAULT 1,
+                xp INTEGER NOT NULL DEFAULT 0,
+                gold INTEGER NOT NULL DEFAULT 50,
+
+                hp INTEGER NOT NULL DEFAULT 100,
+                mana INTEGER NOT NULL DEFAULT 50,
+
+                x DOUBLE PRECISION NOT NULL DEFAULT 520,
+                y DOUBLE PRECISION NOT NULL DEFAULT 520,
+
+                zone VARCHAR(50) NOT NULL DEFAULT 'lumen',
+
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        console.log("✅ Base de datos inicializada.");
+        console.log("✅ Tabla users lista.");
+        console.log("✅ Tabla characters lista.");
+
+    } catch (error) {
+        console.error(
+            "❌ Error inicializando base de datos:",
+            error.message
+        );
+    }
+}
 app.use(express.json({ limit: "100kb" }));
 
 // ================================
@@ -115,7 +164,7 @@ app.use((error, req, res, next) => {
 // ================================
 // INICIAR SERVIDOR
 // ================================
-
+initializeDatabase();
 app.listen(PORT, () => {
 
     console.log("=================================");
