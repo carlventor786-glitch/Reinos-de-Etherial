@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.0
+   REINOS DE ETHERIAL V5.0 
    API.JS
 
    Capa de comunicación:
