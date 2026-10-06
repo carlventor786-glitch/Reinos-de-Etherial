@@ -224,7 +224,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "5.0.0",
+            version: "5.0.2",
             status: "online"
         });
 
@@ -1468,11 +1468,13 @@ const SERVER_CONSUMABLES = {
 };
 
 function getMaxHpForLevel(level) {
-    return 100 + ((Math.max(1, Number(level) || 1) - 1) * 10);
+    // V5.0.2: misma progresión que LEVEL_CONFIG del cliente.
+    return 100 + ((Math.max(1, Number(level) || 1) - 1) * 22);
 }
 
 function getMaxManaForLevel(level) {
-    return 50 + ((Math.max(1, Number(level) || 1) - 1) * 5);
+    // V5.0.2: misma progresión que LEVEL_CONFIG del cliente.
+    return 50 + ((Math.max(1, Number(level) || 1) - 1) * 8);
 }
 
 app.post(
@@ -3714,7 +3716,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 5.0.0"
+                    "Versión: 5.0.2"
                 );
 
                 console.log(
