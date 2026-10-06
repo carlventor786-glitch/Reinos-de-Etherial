@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.5.3
+   REINOS DE ETHERIAL V5.5.3.1
    GAME.JS
 ========================================================= */
 
@@ -931,11 +931,24 @@ async function claimServerQuest(
 ========================================================= */
 
 const camera = {
-
     x: 0,
-    y: 0
-
+    y: 0,
+    zoom: 0.82,
+    minZoom: 0.55,
+    maxZoom: 1.15
 };
+
+function setGameZoom(value) {
+    camera.zoom = clamp(Number(value) || 0.82, camera.minZoom, camera.maxZoom);
+    updateCamera();
+
+    const label = document.getElementById("zoomValue");
+    if (label) label.textContent = Math.round(camera.zoom * 100) + "%";
+}
+
+function changeGameZoom(delta) {
+    setGameZoom(camera.zoom + delta);
+}
 
 
 /* =========================================================
@@ -3116,32 +3129,23 @@ function updatePlayer(dt) {
 
 function updateCamera() {
 
-    camera.x =
-        player.x -
-        VIEW_WIDTH / 2;
+    const visibleWidth = VIEW_WIDTH / camera.zoom;
+    const visibleHeight = VIEW_HEIGHT / camera.zoom;
 
+    camera.x = player.x - visibleWidth / 2;
+    camera.y = player.y - visibleHeight / 2;
 
-    camera.y =
-        player.y -
-        VIEW_HEIGHT / 2;
+    camera.x = clamp(
+        camera.x,
+        0,
+        Math.max(0, WORLD_DATA.width - visibleWidth)
+    );
 
-
-    camera.x =
-        clamp(
-            camera.x,
-            0,
-            WORLD_DATA.width -
-            VIEW_WIDTH
-        );
-
-
-    camera.y =
-        clamp(
-            camera.y,
-            0,
-            WORLD_DATA.height -
-            VIEW_HEIGHT
-        );
+    camera.y = clamp(
+        camera.y,
+        0,
+        Math.max(0, WORLD_DATA.height - visibleHeight)
+    );
 
 }
 
@@ -3564,27 +3568,42 @@ function drawCharacter(
     bodyColor,
     spriteName = "hero"
 ) {
+    const x = screenX(worldX);
+    const y = screenY(worldY);
+
+    // Ground shadow makes characters readable over detailed terrain.
+    ctx.fillStyle = "rgba(0,0,0,.32)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 17, 18, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // The local hero receives a subtle selection ring.
+    if (worldX === player.x && worldY === player.y) {
+        ctx.strokeStyle = "#6fe7ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(x, y + 16, 22, 10, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
     if (
         drawPixelSprite(
             spriteName,
             worldX,
-            worldY - 4,
-            42,
-            52
+            worldY - 9,
+            56,
+            70
         )
     ) {
         return;
     }
 
-    // Fallback seguro si el PNG todavía no cargó.
-    const x = screenX(worldX);
-    const y = screenY(worldY);
-
-    drawRect(x - 11, y - 15, 22, 28, bodyColor);
-    drawRect(x - 9, y - 25, 18, 12, "#f1c27d");
-    drawRect(x - 8, y - 29, 16, 6, "#3f2b1f");
-    drawRect(x - 7, y + 13, 5, 7, "#111827");
-    drawRect(x + 2, y + 13, 5, 7, "#111827");
+    // Fallback if PNG has not loaded.
+    drawRect(x - 13, y - 20, 26, 34, bodyColor);
+    drawRect(x - 10, y - 32, 20, 14, "#f1c27d");
+    drawRect(x - 10, y - 36, 20, 7, "#3f2b1f");
+    drawRect(x - 9, y + 14, 7, 9, "#111827");
+    drawRect(x + 2, y + 14, 7, 9, "#111827");
 }
 
 
@@ -3764,6 +3783,9 @@ function render() {
     );
 
 
+    ctx.save();
+    ctx.scale(camera.zoom, camera.zoom);
+
     drawWorld();
 
     drawNPCs();
@@ -3813,6 +3835,8 @@ function render() {
 
         11
     );
+
+    ctx.restore();
 
 }
 
@@ -4550,6 +4574,26 @@ function resetGame() {
 /* =========================================================
    EVENTOS TECLADO
 ========================================================= */
+
+
+/* =========================================================
+   V5.5.3.1 - ZOOM DE CÁMARA
+========================================================= */
+
+window.addEventListener("load", () => {
+    const minus = document.getElementById("zoomOut");
+    const plus = document.getElementById("zoomIn");
+
+    if (minus) minus.addEventListener("click", () => changeGameZoom(-0.10));
+    if (plus) plus.addEventListener("click", () => changeGameZoom(0.10));
+
+    setGameZoom(camera.zoom);
+});
+
+canvas.addEventListener("wheel", event => {
+    event.preventDefault();
+    changeGameZoom(event.deltaY > 0 ? -0.08 : 0.08);
+}, { passive: false });
 
 window.addEventListener(
     "keydown",
