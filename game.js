@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.4
+   REINOS DE ETHERIAL V5.0
    GAME.JS
 ========================================================= */
 
@@ -51,6 +51,131 @@ let attackCooldown = 0;
 let autoSaveTimer = 0;
 
 let currentTarget = null;
+
+let multiplayerSocket = null;
+let multiplayerSendTimer = 0;
+const remotePlayers = new Map();
+
+function getMultiplayerUrl() {
+    const baseUrl =
+        GAME_CONFIG?.api?.baseUrl || "";
+
+    if (!baseUrl) return null;
+
+    return baseUrl
+        .replace(/^https:/, "wss:")
+        .replace(/^http:/, "ws:")
+        .replace(/\/+$/, "") +
+        "/multiplayer";
+}
+
+function connectMultiplayer() {
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.getToken !== "function"
+    ) {
+        return;
+    }
+
+    const token = EtherialAPI.getToken();
+    const baseUrl = getMultiplayerUrl();
+
+    if (!token || !baseUrl) return;
+
+    if (
+        multiplayerSocket &&
+        (
+            multiplayerSocket.readyState === WebSocket.OPEN ||
+            multiplayerSocket.readyState === WebSocket.CONNECTING
+        )
+    ) {
+        return;
+    }
+
+    multiplayerSocket =
+        new WebSocket(
+            baseUrl +
+            "?token=" +
+            encodeURIComponent(token)
+        );
+
+    multiplayerSocket.onopen = () => {
+        addLog("🌐 Multijugador V5 conectado.");
+    };
+
+    multiplayerSocket.onmessage = event => {
+        try {
+            const message = JSON.parse(event.data);
+
+            if (
+                message.type === "presence" &&
+                Array.isArray(message.players)
+            ) {
+                remotePlayers.clear();
+
+                const ownUserId =
+                    EtherialAPI.getState()?.user?.id;
+
+                message.players.forEach(remote => {
+                    if (
+                        remote &&
+                        remote.userId !== ownUserId
+                    ) {
+                        remotePlayers.set(
+                            remote.userId,
+                            remote
+                        );
+                    }
+                });
+            }
+
+            if (
+                message.type === "player-move" &&
+                message.player
+            ) {
+                const ownUserId =
+                    EtherialAPI.getState()?.user?.id;
+
+                if (
+                    message.player.userId !== ownUserId
+                ) {
+                    remotePlayers.set(
+                        message.player.userId,
+                        message.player
+                    );
+                }
+            }
+        } catch (error) {
+            console.error(
+                "[V5 MULTIPLAYER MESSAGE]",
+                error
+            );
+        }
+    };
+
+    multiplayerSocket.onclose = () => {
+        remotePlayers.clear();
+        multiplayerSocket = null;
+    };
+}
+
+function sendMultiplayerPosition() {
+    if (
+        !multiplayerSocket ||
+        multiplayerSocket.readyState !== WebSocket.OPEN
+    ) {
+        return;
+    }
+
+    multiplayerSocket.send(
+        JSON.stringify({
+            type: "move",
+            x: player.x,
+            y: player.y,
+            zone: player.zone
+        })
+    );
+}
 
 
 /* =========================================================
@@ -323,6 +448,7 @@ window.addEventListener(
 
         loadQuestsFromServer();
         loadInventoryAndEquipmentFromServer();
+        connectMultiplayer();
     }
 );
 
@@ -1009,16 +1135,73 @@ function removeItem(itemId, amount = 1) {
    USAR / EQUIPAR OBJETO
 ========================================================= */
 
-function useInventoryItem(itemId) {
+async function useInventoryItem(itemId) {
     const item = ITEMS[itemId];
 
     if (!item) return;
 
     if (item.type === "consumable") {
-        addLog(
-            "🧪 Consumibles en migración al servidor V4.3."
-        );
-        return;
+
+        if (
+            typeof EtherialAPI === "undefined" ||
+            typeof EtherialAPI.useItem !== "function"
+        ) {
+            addLog(
+                "⚠ Consumibles del servidor no disponibles."
+            );
+            return;
+        }
+
+        try {
+            const result =
+                await EtherialAPI.useItem(itemId);
+
+            if (
+                !result ||
+                result.success !== true ||
+                !result.character ||
+                !Array.isArray(result.inventory)
+            ) {
+                throw new Error(
+                    "Respuesta inválida del servidor."
+                );
+            }
+
+            applyServerCharacter(
+                result.character
+            );
+
+            applyServerInventory(
+                result.inventory
+            );
+
+            const effect =
+                result.effect || {};
+
+            addLog(
+                "🧪 Usaste " +
+                item.name +
+                ". +" +
+                (effect.heal || 0) +
+                " HP"
+            );
+
+            updateUI();
+            return;
+
+        } catch (error) {
+            console.error(
+                "[V5 USE ITEM]",
+                error
+            );
+
+            addLog(
+                "⚠ No se pudo usar " +
+                item.name +
+                "."
+            );
+            return;
+        }
     }
 
     const validEquipment = [
@@ -1579,6 +1762,38 @@ async function killEnemy(enemy) {
 
             }
 
+        }
+
+
+        // ======================================
+        // V5.0 - LOOT OFICIAL DEL SERVIDOR
+        // ======================================
+
+        if (Array.isArray(result.inventory)) {
+            applyServerInventory(
+                result.inventory
+            );
+        }
+
+        if (
+            Array.isArray(result.loot) &&
+            result.loot.length > 0
+        ) {
+            result.loot.forEach(drop => {
+                const lootItem =
+                    ITEMS[drop.itemId];
+
+                addLog(
+                    "🎁 Loot: +" +
+                    drop.quantity +
+                    " " +
+                    (
+                        lootItem
+                            ? lootItem.name
+                            : drop.itemId
+                    )
+                );
+            });
         }
 
 
@@ -2626,45 +2841,54 @@ function updateZone() {
    MUERTE
 ========================================================= */
 
-function playerDeath() {
+async function playerDeath() {
 
-    const lostGold =
-        Math.min(
-            player.gold,
-            Math.floor(
-                player.gold * 0.10
-            ) + 10
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.playerDied !== "function"
+    ) {
+        addLog(
+            "⚠ No se pudo procesar la muerte en el servidor."
+        );
+        return;
+    }
+
+    try {
+        const result =
+            await EtherialAPI.playerDied();
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.character
+        ) {
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+        }
+
+        applyServerCharacter(
+            result.character
         );
 
+        addLog(
+            "💀 Has caído. Regresas a Lumen y pierdes " +
+            (result.lostGold || 0) +
+            " oro."
+        );
 
-    player.gold -=
-        lostGold;
+        updateUI();
 
+    } catch (error) {
+        console.error(
+            "[V5 PLAYER DEATH]",
+            error
+        );
 
-    player.x =
-        WORLD_DATA.startX;
-
-    player.y =
-        WORLD_DATA.startY;
-
-
-    player.hp =
-        player.maxHp;
-
-
-    player.mana =
-        player.maxMana;
-
-
-    addLog(
-        "💀 Has caído. Regresas a Lumen y pierdes " +
-        lostGold +
-        " oro."
-    );
-
-
-    saveGame(false);
-
+        addLog(
+            "⚠ No se pudo registrar la muerte."
+        );
+    }
 }
 
 
@@ -2945,6 +3169,14 @@ function update(dt) {
     updateCamera();
 
     updateZone();
+
+
+    multiplayerSendTimer += dt;
+
+    if (multiplayerSendTimer >= 0.12) {
+        multiplayerSendTimer = 0;
+        sendMultiplayerPosition();
+    }
 
 
     if (
@@ -3488,6 +3720,28 @@ function render() {
     drawWorld();
 
     drawNPCs();
+
+    remotePlayers.forEach(remote => {
+        if (
+            remote.zone === player.zone &&
+            Number.isFinite(Number(remote.x)) &&
+            Number.isFinite(Number(remote.y))
+        ) {
+            drawCharacter(
+                Number(remote.x),
+                Number(remote.y),
+                "#a855f7"
+            );
+
+            drawText(
+                remote.username || "Jugador",
+                screenX(Number(remote.x)) - 24,
+                screenY(Number(remote.y)) - 38,
+                "#e9d5ff",
+                10
+            );
+        }
+    });
 
     drawEnemies();
 
