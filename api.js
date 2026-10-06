@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.3
+   REINOS DE ETHERIAL V4.4
    API.JS
 
    Capa de comunicación:
@@ -817,6 +817,73 @@ const EtherialAPI = (() => {
 
 
     /* =====================================================
+       V4.4
+       TIENDA SEGURA DEL SERVIDOR
+    ===================================================== */
+
+    async function getShop() {
+
+        return await request(
+
+            "/game/shop",
+
+            {
+
+                method:
+                    "GET"
+
+            }
+
+        );
+
+    }
+
+
+
+    async function buyItem(
+        itemId
+    ) {
+
+        if (
+            typeof itemId !==
+                "string" ||
+
+            itemId.length ===
+                0
+        ) {
+
+            throw new Error(
+                "INVALID_ITEM_ID"
+            );
+
+        }
+
+
+        return await request(
+
+            "/game/shop/buy",
+
+            {
+
+                method:
+                    "POST",
+
+                body:
+                    JSON.stringify({
+
+                        itemId
+
+                    })
+
+            }
+
+        );
+
+    }
+
+
+
+    /* =====================================================
        PERFIL
     ===================================================== */
 
@@ -926,6 +993,10 @@ const EtherialAPI = (() => {
         equipItem,
 
         unequipItem,
+
+        getShop,
+
+        buyItem,
 
         getProfile,
 
