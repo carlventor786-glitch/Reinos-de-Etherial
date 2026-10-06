@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V3
+   REINOS DE ETHERIAL V4.2
    GAME.JS
 ========================================================= */
 
@@ -17,7 +17,7 @@ ctx.imageSmoothingEnabled = false;
 const VIEW_WIDTH = canvas.width;
 const VIEW_HEIGHT = canvas.height;
 
-const SAVE_KEY = "reinos_etherial_v3_save";
+const SAVE_KEY = "reinos_etherial_v4_2_save";
 
 
 /* =========================================================
@@ -320,6 +320,8 @@ window.addEventListener(
         applyServerCharacter(
             character
         );
+
+        loadQuestsFromServer();
     }
 );
 
@@ -359,6 +361,330 @@ let questState = {
 
     completed: false
 };
+
+
+let serverQuestRows = [];
+
+
+function getQuestOrder() {
+
+    return Object.keys(QUESTS);
+
+}
+
+
+function syncQuestStateFromRows(rows) {
+
+    serverQuestRows =
+        Array.isArray(rows)
+            ? rows
+            : [];
+
+
+    const byId =
+        new Map(
+            serverQuestRows.map(
+                row => [
+                    row.quest_id,
+                    row
+                ]
+            )
+        );
+
+
+    const order =
+        getQuestOrder();
+
+
+    let currentId =
+        null;
+
+
+    for (const questId of order) {
+
+        const row =
+            byId.get(questId);
+
+
+        if (!row) {
+
+            currentId =
+                questId;
+
+            break;
+        }
+
+
+        if (
+            row.rewarded !== true
+        ) {
+
+            currentId =
+                questId;
+
+            break;
+        }
+
+    }
+
+
+    if (!currentId) {
+
+        questState = {
+
+            current: null,
+
+            progress: 0,
+
+            completed: true
+
+        };
+
+
+        renderQuest();
+
+        return;
+
+    }
+
+
+    const row =
+        byId.get(currentId);
+
+
+    questState = {
+
+        current:
+            currentId,
+
+        progress:
+            row
+                ? Math.max(
+                    0,
+                    Number(row.progress) || 0
+                )
+                : 0,
+
+        completed:
+            row
+                ? Boolean(row.completed)
+                : false
+
+    };
+
+
+    renderQuest();
+
+}
+
+
+async function loadQuestsFromServer() {
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.getQuests !== "function"
+    ) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const result =
+            await EtherialAPI.getQuests();
+
+
+        if (
+            result &&
+            result.success === true
+        ) {
+
+            syncQuestStateFromRows(
+                result.quests || []
+            );
+
+
+            console.log(
+                "📜 Misiones V4.2 cargadas desde PostgreSQL:",
+                result.quests || []
+            );
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[V4.2 QUEST LOAD]",
+            error
+        );
+
+    }
+
+}
+
+
+async function claimServerQuest(
+    questId
+) {
+
+    const quest =
+        QUESTS[questId];
+
+
+    if (
+        !quest ||
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.completeQuest !== "function"
+    ) {
+
+        return false;
+
+    }
+
+
+    try {
+
+        const previousLevel =
+            player.level;
+
+
+        const result =
+            await EtherialAPI.completeQuest(
+                questId
+            );
+
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.character
+        ) {
+
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+
+        }
+
+
+        applyServerCharacter(
+            result.character
+        );
+
+
+        const reward =
+            result.reward || {};
+
+
+        if (reward.items) {
+
+            Object.entries(
+                reward.items
+            )
+            .forEach(
+                ([itemId, amount]) => {
+
+                    addItem(
+                        itemId,
+                        Number(amount) || 0
+                    );
+
+                }
+            );
+
+        }
+
+
+        addLog(
+            "🏆 Misión completada: " +
+            quest.name
+        );
+
+
+        addLog(
+            "🎁 +" +
+            (reward.xp || 0) +
+            " EXP · +" +
+            (reward.gold || 0) +
+            " oro."
+        );
+
+
+        if (
+            player.level >
+            previousLevel
+        ) {
+
+            player.hp =
+                player.maxHp;
+
+            player.mana =
+                player.maxMana;
+
+            showLevelUp();
+
+        }
+
+
+        await loadQuestsFromServer();
+
+
+        if (
+            result.next &&
+            QUESTS[result.next]
+        ) {
+
+            addLog(
+                "📜 Nueva misión: " +
+                QUESTS[result.next].name
+            );
+
+        }
+
+        else if (
+            result.next === null
+        ) {
+
+            addLog(
+                "👑 ¡Has completado todas las misiones de V4.2!"
+            );
+
+        }
+
+
+        saveGame(false);
+
+        updateUI();
+
+        renderQuest();
+
+
+        return true;
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[V4.2 QUEST CLAIM]",
+            error
+        );
+
+
+        addLog(
+            "⚠ No se pudo cobrar la recompensa de misión."
+        );
+
+
+        return false;
+
+    }
+
+}
 
 
 /* =========================================================
@@ -1056,12 +1382,60 @@ async function killEnemy(enemy) {
 
 
         // ======================================
-        // MISIONES
+        // MISIONES V4.2 - PROGRESO DEL SERVIDOR
         // ======================================
 
-        processQuestKill(
-            enemy.type
-        );
+        if (result.quest) {
+
+            questState.current =
+                result.quest.questId;
+
+            questState.progress =
+                Number(
+                    result.quest.progress
+                ) || 0;
+
+            questState.completed =
+                Boolean(
+                    result.quest.completed
+                );
+
+
+            const serverQuest =
+                QUESTS[
+                    result.quest.questId
+                ];
+
+
+            if (serverQuest) {
+
+                addLog(
+                    "📜 " +
+                    serverQuest.name +
+                    ": " +
+                    questState.progress +
+                    "/" +
+                    serverQuest.amount
+                );
+
+            }
+
+
+            renderQuest();
+
+
+            if (
+                result.quest.completed === true &&
+                result.quest.rewarded !== true
+            ) {
+
+                await claimServerQuest(
+                    result.quest.questId
+                );
+
+            }
+
+        }
 
 
         // ======================================
@@ -1259,47 +1633,7 @@ function getCurrentQuest() {
 }
 
 
-function processQuestKill(
-    enemyType
-) {
-
-    const quest =
-        getCurrentQuest();
-
-
-    if (!quest) return;
-
-    if (
-        quest.type !== "kill"
-    ) {
-        return;
-    }
-
-
-    if (
-        quest.target !==
-        enemyType
-    ) {
-        return;
-    }
-
-
-    questState.progress++;
-
-
-    if (
-        questState.progress >=
-        quest.amount
-    ) {
-
-        completeQuest();
-
-    }
-
-}
-
-
-function processQuestTalk(
+async function processQuestTalk(
     npcId
 ) {
 
@@ -1311,13 +1645,89 @@ function processQuestTalk(
 
 
     if (
-        quest.type === "talk" &&
-        quest.target === npcId
+        quest.type !== "talk" ||
+        quest.target !== npcId
     ) {
 
-        questState.progress = 1;
+        return;
 
-        completeQuest();
+    }
+
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.npcTalked !== "function"
+    ) {
+
+        addLog(
+            "⚠ No se pudo registrar la conversación."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const result =
+            await EtherialAPI.npcTalked(
+                npcId
+            );
+
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.quest
+        ) {
+
+            return;
+
+        }
+
+
+        questState.current =
+            result.quest.questId;
+
+        questState.progress =
+            Number(
+                result.quest.progress
+            ) || 0;
+
+        questState.completed =
+            Boolean(
+                result.quest.completed
+            );
+
+
+        renderQuest();
+
+
+        if (
+            result.quest.completed === true &&
+            result.quest.rewarded !== true
+        ) {
+
+            await claimServerQuest(
+                result.quest.questId
+            );
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[V4.2 NPC QUEST]",
+            error
+        );
+
+
+        addLog(
+            "⚠ El servidor no pudo actualizar la misión."
+        );
 
     }
 
@@ -1325,88 +1735,27 @@ function processQuestTalk(
 
 
 /* =========================================================
-   COMPLETAR MISIÓN
+   COMPLETAR MISIÓN V4.2
+
+   Las recompensas oficiales se procesan en el servidor.
 ========================================================= */
 
-function completeQuest() {
+async function completeQuest() {
 
-    const quest =
-        getCurrentQuest();
-
-
-    if (!quest) return;
+    const questId =
+        questState.current;
 
 
-    player.gold +=
-        quest.reward.gold || 0;
+    if (!questId) {
 
-
-    player.xp +=
-        quest.reward.xp || 0;
-
-
-    if (quest.reward.items) {
-
-        Object.entries(
-            quest.reward.items
-        )
-        .forEach(
-            ([itemId, amount]) => {
-
-                addItem(
-                    itemId,
-                    amount
-                );
-
-            }
-        );
+        return false;
 
     }
 
 
-    addLog(
-        "🏆 Misión completada: " +
-        quest.name
+    return await claimServerQuest(
+        questId
     );
-
-
-    checkLevelUp();
-
-
-    if (quest.next) {
-
-        questState.current =
-            quest.next;
-
-        questState.progress =
-            0;
-
-        questState.completed =
-            false;
-
-
-        addLog(
-            "📜 Nueva misión: " +
-            QUESTS[quest.next].name
-        );
-
-    }
-
-    else {
-
-        questState.completed =
-            true;
-
-        addLog(
-            "👑 ¡Has completado todas las misiones de V3!"
-        );
-
-    }
-
-
-    saveGame(false);
-
-    renderQuest();
 
 }
 
@@ -1455,7 +1804,7 @@ function getNearestNPC() {
    INTERACTUAR
 ========================================================= */
 
-function interact() {
+async function interact() {
 
     const npc =
         getNearestNPC();
@@ -1473,7 +1822,7 @@ function interact() {
 
     openDialog(npc);
 
-    processQuestTalk(
+    await processQuestTalk(
         npc.id
     );
 
@@ -3333,13 +3682,9 @@ function saveGame(
 
     const save = {
 
-        player,
-
         inventory,
 
-        equipment,
-
-        questState
+        equipment
 
     };
 
@@ -3475,7 +3820,7 @@ function resetGame() {
 
     const answer =
         confirm(
-            "¿Quieres borrar todo el progreso de V3?"
+            "¿Quieres borrar los datos locales de V4.2?"
         );
 
 
@@ -3733,7 +4078,7 @@ const loaded =
 if (loaded) {
 
     addLog(
-        "💾 Partida V3 cargada."
+        "💾 Datos locales V4.2 cargados."
     );
 
 }
@@ -3741,7 +4086,7 @@ if (loaded) {
 else {
 
     addLog(
-        "🌟 Bienvenido a Reinos de Etherial V3."
+        "🌟 Bienvenido a Reinos de Etherial V4.2."
     );
 
 
