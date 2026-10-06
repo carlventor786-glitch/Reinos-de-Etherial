@@ -771,12 +771,7 @@ app.put(
                 success: false,
                 message:
                     "No se pudo guardar el personaje."
-            );
-
-        }
-
-    }
-);
+            });
 // ==========================================
 // RUTA NO ENCONTRADA - 404
 // ==========================================
