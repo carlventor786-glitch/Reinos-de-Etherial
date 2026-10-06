@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.5.2 
+   REINOS DE ETHERIAL V5.5.3
    GAME.JS
 ========================================================= */
 
@@ -3266,6 +3266,22 @@ function drawText(
    V5.5.1 - MUNDO PIXEL MMORPG (REFERENCIA OFICIAL)
 ========================================================= */
 
+
+/* V5.5.3 detailed world PNG assets */
+const V553_WORLD = {};
+["house_blue","shop_red","tavern","castle","tree_green","tree_autumn","fountain","lamp","flowers","rock","crate","barrel"].forEach(n=>{
+    const im=new Image();
+    im.src="assets/world/"+n+".png";
+    V553_WORLD[n]=im;
+});
+function v553Sprite(n,wx,wy,w,h,anchorX=.5,anchorY=1){
+    const im=V553_WORLD[n];
+    if(!im || !im.complete || !im.naturalWidth) return false;
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(im,Math.round(screenX(wx)-w*anchorX),Math.round(screenY(wy)-h*anchorY),w,h);
+    return true;
+}
+
 function v55Hash(x, y, salt = 0) {
     let n = Math.sin(x * 12.9898 + y * 78.233 + salt * 37.719) * 43758.5453;
     return n - Math.floor(n);
@@ -3322,6 +3338,7 @@ function v55DrawStonePath(x, y, w, h) {
 }
 
 function v55DrawTree(wx, wy, autumn = false) {
+    if (v553Sprite(autumn ? "tree_autumn" : "tree_green", wx, wy + 32, 72, 96)) return;
     const x = screenX(wx), y = screenY(wy);
     ctx.fillStyle = "#5b3a22";
     ctx.fillRect(x - 5, y + 8, 10, 25);
@@ -3336,6 +3353,7 @@ function v55DrawTree(wx, wy, autumn = false) {
 }
 
 function v55DrawRock(wx, wy) {
+    if (v553Sprite("rock", wx, wy + 12, 52, 39)) return;
     const x = screenX(wx), y = screenY(wy);
     ctx.fillStyle = "#58656a";
     ctx.fillRect(x - 12, y - 7, 24, 15);
@@ -3346,6 +3364,7 @@ function v55DrawRock(wx, wy) {
 }
 
 function v55DrawFlowerPatch(wx, wy) {
+    if (v553Sprite("flowers", wx, wy + 14, 58, 44)) return;
     const colors = ["#f3d35a","#ef6f91","#f4f0e5","#b783df"];
     for (let i = 0; i < 9; i++) {
         const ox = (i * 13) % 30 - 15;
@@ -3358,6 +3377,8 @@ function v55DrawFlowerPatch(wx, wy) {
 }
 
 function v55DrawHouse(wx, wy, roof = "#315d9b", shop = false) {
+    const assetName = shop ? "shop_red" : (roof === "#8b5b35" ? "tavern" : "house_blue");
+    if (v553Sprite(assetName, wx + 56, wy + 100, 144, 132)) return;
     const x = screenX(wx), y = screenY(wy);
 
     ctx.fillStyle = "#d0b68b";
@@ -3405,6 +3426,7 @@ function v55DrawHouse(wx, wy, roof = "#315d9b", shop = false) {
 }
 
 function v55DrawLamp(wx, wy) {
+    if (v553Sprite("lamp", wx, wy + 12, 32, 64)) return;
     const x = screenX(wx), y = screenY(wy);
     ctx.fillStyle = "#25262b";
     ctx.fillRect(x - 2, y - 18, 4, 27);
@@ -3417,6 +3439,7 @@ function v55DrawLamp(wx, wy) {
 }
 
 function v55DrawFountain(wx, wy) {
+    if (v553Sprite("fountain", wx, wy + 28, 122, 95)) return;
     const x = screenX(wx), y = screenY(wy);
     ctx.fillStyle = "#777d83";
     ctx.beginPath(); ctx.ellipse(x, y, 50, 27, 0, 0, Math.PI*2); ctx.fill();
@@ -3435,6 +3458,9 @@ function v55DrawLumenCity() {
     v55DrawStonePath(250, 250, 600, 600);
     v55DrawStonePath(100, 500, 1000, 110);
     v55DrawStonePath(480, 100, 110, 1000);
+
+    // Main guard/castle, matching the approved Lumen reference.
+    v553Sprite("castle", 535, 325, 205, 180);
 
     // City buildings.
     v55DrawHouse(300, 305, "#315d9b", false);
@@ -3457,6 +3483,9 @@ function v55DrawLumenCity() {
 
     [[455,455],[610,455],[455,660],[610,660]]
         .forEach(p=>v55DrawLamp(p[0],p[1]));
+
+    [[340,610],[725,610],[340,760]].forEach(p=>v553Sprite("crate",p[0],p[1],38,38));
+    [[385,610],[770,610]].forEach(p=>v553Sprite("barrel",p[0],p[1],30,39));
 }
 
 function v55DrawWilderness() {
