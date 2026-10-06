@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.5.3.1
+   REINOS DE ETHERIAL V5.5.3.2
    GAME.JS
 ========================================================= */
 
@@ -933,13 +933,13 @@ async function claimServerQuest(
 const camera = {
     x: 0,
     y: 0,
-    zoom: 0.82,
-    minZoom: 0.55,
+    zoom: 0.70,
+    minZoom: 0.45,
     maxZoom: 1.15
 };
 
 function setGameZoom(value) {
-    camera.zoom = clamp(Number(value) || 0.82, camera.minZoom, camera.maxZoom);
+    camera.zoom = clamp(Number(value) || 0.70, camera.minZoom, camera.maxZoom);
     updateCamera();
 
     const label = document.getElementById("zoomValue");
@@ -3559,6 +3559,73 @@ function drawVillage() {
 
 
 /* =========================================================
+   V5.5.3.2 - SISTEMA DE SPRITES (FIX REAL)
+========================================================= */
+
+const V5532_SPRITE_FILES = {
+    hero: "hero.png",
+    slime: "slime.png",
+    wolf: "wolf.png",
+    goblin: "goblin.png",
+    skeleton: "skeleton.png",
+    enemy: "enemy.png",
+    guardian: "guardian.png",
+    healer: "healer.png",
+    merchant: "merchant.png",
+    villager: "villager.png"
+};
+
+const V5532_SPRITES = {};
+
+Object.entries(V5532_SPRITE_FILES).forEach(([name, file]) => {
+    const image = new Image();
+    image.src = "assets/sprites/" + file;
+    V5532_SPRITES[name] = image;
+});
+
+function drawPixelSprite(spriteName, worldX, worldY, width, height) {
+    const image = V5532_SPRITES[spriteName] || V5532_SPRITES.hero;
+
+    if (!image || !image.complete || !image.naturalWidth) {
+        return false;
+    }
+
+    const x = screenX(worldX);
+    const y = screenY(worldY);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+        image,
+        Math.round(x - width / 2),
+        Math.round(y - height),
+        Math.round(width),
+        Math.round(height)
+    );
+
+    return true;
+}
+
+function getEnemySpriteName(enemyType) {
+    if (enemyType === "slime") return "slime";
+    if (enemyType === "wolf") return "wolf";
+    if (enemyType === "goblin" || enemyType === "goblinWarrior") return "goblin";
+    if (enemyType === "skeleton") return "skeleton";
+    return "enemy";
+}
+
+function getNpcSpriteName(npc) {
+    const id = String(npc?.id || "").toLowerCase();
+    const role = String(npc?.role || "").toLowerCase();
+
+    if (id === "elena" || role.includes("curand")) return "healer";
+    if (id === "mira" || role.includes("merc")) return "merchant";
+    if (id === "aldric" || role.includes("maestro")) return "guardian";
+    if (id === "borin" || role.includes("herr")) return "guardian";
+    return "villager";
+}
+
+
+/* =========================================================
    PERSONAJE
 ========================================================= */
 
@@ -3577,8 +3644,13 @@ function drawCharacter(
     ctx.ellipse(x, y + 17, 18, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // The local hero receives a subtle selection ring.
-    if (worldX === player.x && worldY === player.y) {
+    // The local hero receives a strong selection marker.
+    const isLocalHero = worldX === player.x && worldY === player.y;
+    if (isLocalHero) {
+        ctx.fillStyle = "rgba(0, 225, 255, .18)";
+        ctx.beginPath();
+        ctx.ellipse(x, y + 16, 26, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.strokeStyle = "#6fe7ff";
         ctx.lineWidth = 2;
         ctx.beginPath();
