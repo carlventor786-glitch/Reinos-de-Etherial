@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.0
+   REINOS DE ETHERIAL V5.0.1
    GAME.JS
 ========================================================= */
 
@@ -1153,6 +1153,39 @@ async function useInventoryItem(itemId) {
         }
 
         try {
+            // V5.0.1:
+            // El daño de enemigos todavía ocurre localmente.
+            // Antes de consumir la poción sincronizamos HP/mana
+            // y esperamos al servidor para evitar curar sobre
+            // un HP antiguo guardado en PostgreSQL.
+            if (
+                typeof EtherialAPI.saveCharacter === "function"
+            ) {
+                const syncResult =
+                    await EtherialAPI.saveCharacter({
+                        hp: Math.max(
+                            0,
+                            Math.floor(player.hp)
+                        ),
+                        mana: Math.max(
+                            0,
+                            Math.floor(player.mana)
+                        ),
+                        x: player.x,
+                        y: player.y,
+                        zone: player.zone
+                    });
+
+                if (
+                    !syncResult ||
+                    syncResult.success !== true
+                ) {
+                    throw new Error(
+                        "No se pudo sincronizar la vida antes de usar la poción."
+                    );
+                }
+            }
+
             const result =
                 await EtherialAPI.useItem(itemId);
 
