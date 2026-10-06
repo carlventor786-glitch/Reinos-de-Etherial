@@ -17,9 +17,9 @@ const GAME_ORIGIN =
     "https://carlventor786-glitch.github.io";
 
 
-// ==========================================
-// BASE DE DATOS POSTGRESQL / NEON
-// ==========================================
+// =========================================================
+// POSTGRESQL / NEON
+// =========================================================
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -29,14 +29,19 @@ const pool = new Pool({
 });
 
 
-// ==========================================
+// =========================================================
 // MIDDLEWARE
-// ==========================================
+// =========================================================
 
 app.use(
     cors({
         origin: GAME_ORIGIN,
-        methods: ["GET", "POST", "PUT", "DELETE"],
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE"
+        ],
         allowedHeaders: [
             "Content-Type",
             "Authorization"
@@ -51,9 +56,9 @@ app.use(
 );
 
 
-// ==========================================
-// INICIALIZAR BASE DE DATOS
-// ==========================================
+// =========================================================
+// BASE DE DATOS
+// =========================================================
 
 async function initializeDatabase() {
 
@@ -71,6 +76,7 @@ async function initializeDatabase() {
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS characters (
+
                 id SERIAL PRIMARY KEY,
 
                 user_id INTEGER UNIQUE NOT NULL
@@ -95,6 +101,38 @@ async function initializeDatabase() {
         `);
 
 
+        // =================================================
+        // V4.2 - PROGRESO DE MISIONES
+        // =================================================
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS character_quests (
+
+                id SERIAL PRIMARY KEY,
+
+                user_id INTEGER NOT NULL
+                    REFERENCES users(id)
+                    ON DELETE CASCADE,
+
+                quest_id VARCHAR(50) NOT NULL,
+
+                progress INTEGER NOT NULL DEFAULT 0,
+
+                completed BOOLEAN NOT NULL DEFAULT FALSE,
+
+                rewarded BOOLEAN NOT NULL DEFAULT FALSE,
+
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+                completed_at TIMESTAMPTZ,
+
+                UNIQUE(user_id, quest_id)
+            );
+        `);
+
+
         console.log(
             "✅ Base de datos inicializada."
         );
@@ -107,6 +145,11 @@ async function initializeDatabase() {
             "✅ Tabla characters lista."
         );
 
+        console.log(
+            "✅ Tabla character_quests lista."
+        );
+
+
     } catch (error) {
 
         console.error(
@@ -114,13 +157,14 @@ async function initializeDatabase() {
             error.message
         );
 
+        throw error;
     }
 }
 
 
-// ==========================================
+// =========================================================
 // RUTA PRINCIPAL
-// ==========================================
+// =========================================================
 
 app.get(
     "/",
@@ -129,7 +173,7 @@ app.get(
         res.json({
             game: "Reinos de Etherial",
             server: "Etherial Backend",
-            version: "4.0.0",
+            version: "4.2.0",
             status: "online"
         });
 
@@ -137,9 +181,9 @@ app.get(
 );
 
 
-// ==========================================
-// HEALTH CHECK + DATABASE
-// ==========================================
+// =========================================================
+// HEALTH
+// =========================================================
 
 app.get(
     "/health",
@@ -161,7 +205,7 @@ app.get(
                     "Reinos de Etherial",
 
                 version:
-                    "4.0.0",
+                    "4.2.0",
 
                 server:
                     "online",
@@ -173,6 +217,7 @@ app.get(
                     result.rows[0].database_time
 
             });
+
 
         } catch (error) {
 
@@ -203,9 +248,9 @@ app.get(
 );
 
 
-// ==========================================
-// REGISTRO DE USUARIO
-// ==========================================
+// =========================================================
+// REGISTRO
+// =========================================================
 
 app.post(
     "/auth/register",
@@ -222,10 +267,6 @@ app.post(
                 password
             } = req.body;
 
-
-            // ----------------------------------
-            // VALIDAR DATOS
-            // ----------------------------------
 
             if (
                 typeof username !== "string" ||
@@ -282,10 +323,6 @@ app.post(
             }
 
 
-            // ----------------------------------
-            // TRANSACCIÓN
-            // ----------------------------------
-
             await client.query(
                 "BEGIN"
             );
@@ -298,7 +335,9 @@ app.post(
                         FROM users
                         WHERE username = $1
                     `,
-                    [username]
+                    [
+                        username
+                    ]
                 );
 
 
@@ -322,20 +361,12 @@ app.post(
             }
 
 
-            // ----------------------------------
-            // CIFRAR CONTRASEÑA
-            // ----------------------------------
-
             const passwordHash =
                 await bcrypt.hash(
                     password,
                     12
                 );
 
-
-            // ----------------------------------
-            // CREAR USUARIO
-            // ----------------------------------
 
             const userResult =
                 await client.query(
@@ -364,10 +395,6 @@ app.post(
                 userResult.rows[0];
 
 
-            // ----------------------------------
-            // CREAR PERSONAJE
-            // ----------------------------------
-
             const characterResult =
                 await client.query(
                     `
@@ -390,18 +417,10 @@ app.post(
                 characterResult.rows[0];
 
 
-            // ----------------------------------
-            // CONFIRMAR TRANSACCIÓN
-            // ----------------------------------
-
             await client.query(
                 "COMMIT"
             );
 
-
-            // ----------------------------------
-            // CREAR TOKEN
-            // ----------------------------------
 
             const token =
                 jwt.sign(
@@ -421,10 +440,6 @@ app.post(
                     }
                 );
 
-
-            // ----------------------------------
-            // RESPUESTA
-            // ----------------------------------
 
             return res
                 .status(201)
@@ -493,9 +508,9 @@ app.post(
 );
 
 
-// ==========================================
-// LOGIN DE USUARIO
-// ==========================================
+// =========================================================
+// LOGIN
+// =========================================================
 
 app.post(
     "/auth/login",
@@ -668,9 +683,9 @@ app.post(
 );
 
 
-// ==========================================
-// AUTENTICACIÓN JWT
-// ==========================================
+// =========================================================
+// JWT
+// =========================================================
 
 function authenticateToken(
     req,
@@ -735,9 +750,9 @@ function authenticateToken(
 }
 
 
-// ==========================================
+// =========================================================
 // OBTENER PERSONAJE
-// ==========================================
+// =========================================================
 
 app.get(
     "/character",
@@ -819,9 +834,9 @@ app.get(
 );
 
 
-// ==========================================
-// GUARDAR ESTADO SEGURO DEL PERSONAJE
-// ==========================================
+// =========================================================
+// GUARDAR ESTADO DEL PERSONAJE
+// =========================================================
 
 app.put(
     "/character",
@@ -838,10 +853,6 @@ app.put(
                 zone
             } = req.body;
 
-
-            // ----------------------------------
-            // VALIDAR NÚMEROS
-            // ----------------------------------
 
             const safeHp =
                 Number(hp);
@@ -874,10 +885,6 @@ app.put(
             }
 
 
-            // ----------------------------------
-            // VALIDAR ZONA
-            // ----------------------------------
-
             const allowedZones = [
                 "lumen",
                 "forest",
@@ -903,10 +910,6 @@ app.put(
             }
 
 
-            // ----------------------------------
-            // LIMITAR POSICIÓN
-            // ----------------------------------
-
             const safePositionX =
                 Math.max(
                     0,
@@ -926,10 +929,6 @@ app.put(
                     )
                 );
 
-
-            // ----------------------------------
-            // OBTENER NIVEL REAL
-            // ----------------------------------
 
             const characterResult =
                 await pool.query(
@@ -970,10 +969,6 @@ app.put(
                 );
 
 
-            // ----------------------------------
-            // CALCULAR HP/MANA MÁXIMOS
-            // ----------------------------------
-
             const maxHp =
                 100 +
                 (
@@ -1013,10 +1008,6 @@ app.put(
                     )
                 );
 
-
-            // ----------------------------------
-            // ACTUALIZAR POSTGRESQL
-            // ----------------------------------
 
             const result =
                 await pool.query(
@@ -1108,9 +1099,10 @@ app.put(
     }
 );
 
-// ==========================================
-// V4.2 - RECOMPENSA SEGURA POR ENEMIGO
-// ==========================================
+
+// =========================================================
+// ENEMIGOS OFICIALES DEL SERVIDOR
+// =========================================================
 
 const SERVER_ENEMIES = {
 
@@ -1132,6 +1124,18 @@ const SERVER_ENEMIES = {
         goldMax: 12
     },
 
+    goblinWarrior: {
+        xp: 36,
+        goldMin: 8,
+        goldMax: 15
+    },
+
+    darkWolf: {
+        xp: 34,
+        goldMin: 7,
+        goldMax: 14
+    },
+
     skeleton: {
         xp: 40,
         goldMin: 8,
@@ -1141,13 +1145,132 @@ const SERVER_ENEMIES = {
 };
 
 
-// ==========================================
-// CALCULAR XP NECESARIA
-// ==========================================
+// =========================================================
+// MISIONES OFICIALES
+// =========================================================
+
+const SERVER_QUESTS = {
+
+    introduction: {
+
+        type: "talk",
+        target: "aldric",
+        amount: 1,
+
+        xp: 40,
+        gold: 40,
+
+        items: {
+            potion: 2
+        },
+
+        next:
+            "slimeHunt"
+    },
+
+
+    slimeHunt: {
+
+        type: "kill",
+        target: "slime",
+        amount: 3,
+
+        xp: 100,
+        gold: 75,
+
+        items: {
+            potion: 2
+        },
+
+        next:
+            "wolfHunt"
+    },
+
+
+    wolfHunt: {
+
+        type: "kill",
+        target: "wolf",
+        amount: 4,
+
+        xp: 170,
+        gold: 120,
+
+        items: {
+            leatherHelmet: 1
+        },
+
+        next:
+            "goblinThreat"
+    },
+
+
+    goblinThreat: {
+
+        type: "kill",
+        target: "goblin",
+        amount: 5,
+
+        xp: 300,
+        gold: 220,
+
+        items: {
+            ironSword: 1
+        },
+
+        next:
+            "darkForest"
+    },
+
+
+    darkForest: {
+
+        type: "kill",
+        target: "darkWolf",
+        amount: 4,
+
+        xp: 500,
+        gold: 350,
+
+        items: {
+            hunterBoots: 1
+        },
+
+        next:
+            "ancientRuins"
+    },
+
+
+    ancientRuins: {
+
+        type: "kill",
+        target: "skeleton",
+        amount: 5,
+
+        xp: 800,
+        gold: 600,
+
+        items: {
+            etherialSword: 1,
+            etherialCrystal: 2
+        },
+
+        next:
+            null
+    }
+
+};
+
+
+// =========================================================
+// XP NECESARIA PARA SUBIR DE NIVEL
+// =========================================================
 
 function getRequiredXpForLevel(level) {
 
-    let requiredXp = 100;
+    let requiredXp =
+        100;
+
 
     for (
         let currentLevel = 1;
@@ -1157,18 +1280,300 @@ function getRequiredXpForLevel(level) {
 
         requiredXp =
             Math.floor(
-                requiredXp * 1.35
+                requiredXp *
+                1.35
             );
 
     }
+
 
     return requiredXp;
 }
 
 
-// ==========================================
-// REGISTRAR ENEMIGO DERROTADO
-// ==========================================
+// =========================================================
+// OBTENER / CREAR MISIÓN DEL JUGADOR
+// =========================================================
+
+async function getOrCreateQuestState(
+    client,
+    userId,
+    questId
+) {
+
+    const result =
+        await client.query(
+            `
+                INSERT INTO character_quests
+                (
+                    user_id,
+                    quest_id
+                )
+
+                VALUES ($1, $2)
+
+                ON CONFLICT
+                    (user_id, quest_id)
+
+                DO UPDATE SET
+                    quest_id =
+                        EXCLUDED.quest_id
+
+                RETURNING *
+            `,
+            [
+                userId,
+                questId
+            ]
+        );
+
+
+    return result.rows[0];
+}
+
+
+// =========================================================
+// COMPROBAR SI LA MISIÓN ANTERIOR FUE COBRADA
+// =========================================================
+
+async function previousQuestRewarded(
+    client,
+    userId,
+    questId
+) {
+
+    const questIds =
+        Object.keys(
+            SERVER_QUESTS
+        );
+
+
+    const index =
+        questIds.indexOf(
+            questId
+        );
+
+
+    if (index <= 0) {
+
+        return true;
+
+    }
+
+
+    const previousQuestId =
+        questIds[
+            index - 1
+        ];
+
+
+    const result =
+        await client.query(
+            `
+                SELECT rewarded
+
+                FROM character_quests
+
+                WHERE
+                    user_id = $1
+                    AND quest_id = $2
+            `,
+            [
+                userId,
+                previousQuestId
+            ]
+        );
+
+
+    return (
+        result.rows.length > 0 &&
+        result.rows[0].rewarded === true
+    );
+}
+
+
+// =========================================================
+// ACTUALIZAR PROGRESO DE MISIÓN POR KILL
+// =========================================================
+
+async function processServerQuestKill(
+    client,
+    userId,
+    enemyType
+) {
+
+    const questIds =
+        Object.keys(
+            SERVER_QUESTS
+        );
+
+
+    for (
+        const questId
+        of questIds
+    ) {
+
+        const quest =
+            SERVER_QUESTS[
+                questId
+            ];
+
+
+        if (
+            quest.type !== "kill" ||
+            quest.target !== enemyType
+        ) {
+
+            continue;
+
+        }
+
+
+        const previousComplete =
+            await previousQuestRewarded(
+                client,
+                userId,
+                questId
+            );
+
+
+        if (!previousComplete) {
+
+            return null;
+
+        }
+
+
+        let state =
+            await getOrCreateQuestState(
+                client,
+                userId,
+                questId
+            );
+
+
+        if (
+            state.completed ||
+            state.rewarded
+        ) {
+
+            return {
+
+                questId,
+
+                progress:
+                    Number(
+                        state.progress
+                    ),
+
+                amount:
+                    quest.amount,
+
+                completed:
+                    Boolean(
+                        state.completed
+                    ),
+
+                rewarded:
+                    Boolean(
+                        state.rewarded
+                    )
+
+            };
+
+        }
+
+
+        const newProgress =
+            Math.min(
+                Number(
+                    state.progress
+                ) + 1,
+
+                quest.amount
+            );
+
+
+        const completed =
+            newProgress >=
+            quest.amount;
+
+
+        const updateResult =
+            await client.query(
+                `
+                    UPDATE character_quests
+
+                    SET
+                        progress = $1,
+
+                        completed = $2,
+
+                        completed_at =
+                            CASE
+                                WHEN $2 = TRUE
+                                THEN COALESCE(
+                                    completed_at,
+                                    NOW()
+                                )
+                                ELSE completed_at
+                            END,
+
+                        updated_at = NOW()
+
+                    WHERE
+                        user_id = $3
+                        AND quest_id = $4
+
+                    RETURNING *
+                `,
+                [
+                    newProgress,
+                    completed,
+                    userId,
+                    questId
+                ]
+            );
+
+
+        state =
+            updateResult.rows[0];
+
+
+        return {
+
+            questId,
+
+            progress:
+                Number(
+                    state.progress
+                ),
+
+            amount:
+                quest.amount,
+
+            completed:
+                Boolean(
+                    state.completed
+                ),
+
+            rewarded:
+                Boolean(
+                    state.rewarded
+                )
+
+        };
+
+    }
+
+
+    return null;
+}
+
+
+// =========================================================
+// ENEMIGO DERROTADO
+// =========================================================
 
 app.post(
     "/game/enemy-killed",
@@ -1178,6 +1583,7 @@ app.post(
         const client =
             await pool.connect();
 
+
         try {
 
             const {
@@ -1185,13 +1591,11 @@ app.post(
             } = req.body;
 
 
-            // ----------------------------------
-            // VALIDAR ENEMIGO
-            // ----------------------------------
-
             if (
                 typeof enemyType !== "string" ||
-                !SERVER_ENEMIES[enemyType]
+                !SERVER_ENEMIES[
+                    enemyType
+                ]
             ) {
 
                 return res
@@ -1206,17 +1610,15 @@ app.post(
 
 
             const enemy =
-                SERVER_ENEMIES[enemyType];
+                SERVER_ENEMIES[
+                    enemyType
+                ];
 
 
             await client.query(
                 "BEGIN"
             );
 
-
-            // ----------------------------------
-            // BLOQUEAR PERSONAJE
-            // ----------------------------------
 
             const result =
                 await client.query(
@@ -1263,10 +1665,6 @@ app.post(
                 result.rows[0];
 
 
-            // ----------------------------------
-            // RECOMPENSA GENERADA EN SERVIDOR
-            // ----------------------------------
-
             const goldEarned =
                 Math.floor(
                     Math.random() *
@@ -1280,23 +1678,28 @@ app.post(
 
 
             let newLevel =
-                Number(character.level);
+                Number(
+                    character.level
+                );
+
 
             let newXp =
-                Number(character.xp) +
+                Number(
+                    character.xp
+                ) +
                 enemy.xp;
 
-            let newGold =
-                Number(character.gold) +
+
+            const newGold =
+                Number(
+                    character.gold
+                ) +
                 goldEarned;
 
 
-            let levelsGained = 0;
+            let levelsGained =
+                0;
 
-
-            // ----------------------------------
-            // SUBIR NIVEL
-            // ----------------------------------
 
             let requiredXp =
                 getRequiredXpForLevel(
@@ -1305,7 +1708,8 @@ app.post(
 
 
             while (
-                newXp >= requiredXp
+                newXp >=
+                requiredXp
             ) {
 
                 newXp -=
@@ -1315,6 +1719,7 @@ app.post(
 
                 levelsGained++;
 
+
                 requiredXp =
                     getRequiredXpForLevel(
                         newLevel
@@ -1322,10 +1727,6 @@ app.post(
 
             }
 
-
-            // ----------------------------------
-            // ACTUALIZAR POSTGRESQL
-            // ----------------------------------
 
             const updateResult =
                 await client.query(
@@ -1362,6 +1763,15 @@ app.post(
                 );
 
 
+            // Actualizar misión correspondiente.
+            const questProgress =
+                await processServerQuestKill(
+                    client,
+                    req.user.userId,
+                    enemyType
+                );
+
+
             await client.query(
                 "COMMIT"
             );
@@ -1374,6 +1784,7 @@ app.post(
                     success: true,
 
                     reward: {
+
                         xp:
                             enemy.xp,
 
@@ -1381,10 +1792,14 @@ app.post(
                             goldEarned,
 
                         levelsGained
+
                     },
 
                     character:
-                        updateResult.rows[0]
+                        updateResult.rows[0],
+
+                    quest:
+                        questProgress
 
                 });
 
@@ -1402,7 +1817,7 @@ app.post(
             ) {
 
                 console.error(
-                    "[V4.2 ROLLBACK ERROR]",
+                    "[ENEMY ROLLBACK ERROR]",
                     rollbackError.message
                 );
 
@@ -1410,7 +1825,7 @@ app.post(
 
 
             console.error(
-                "[V4.2 ENEMY KILL ERROR]",
+                "[ENEMY KILL ERROR]",
                 error.message
             );
 
@@ -1433,25 +1848,272 @@ app.post(
     }
 );
 
-// ==========================================
-// V4.2 - MISIONES SEGURAS EN SERVIDOR
-// ==========================================
 
-const SERVER_QUESTS = {
+// =========================================================
+// HABLAR CON NPC
+// =========================================================
 
-    introduction: {
-        xp: 0,
-        gold: 0
-    },
+app.post(
+    "/game/npc-talked",
+    authenticateToken,
+    async (req, res) => {
 
-    // Las siguientes recompensas se conectarán
-    // con los valores reales de QUESTS del juego.
-};
+        const client =
+            await pool.connect();
 
 
-// ==========================================
-// COMPLETAR MISIÓN
-// ==========================================
+        try {
+
+            const {
+                npcId
+            } = req.body;
+
+
+            if (
+                typeof npcId !== "string"
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        message:
+                            "NPC inválido."
+                    });
+
+            }
+
+
+            // Por ahora la única misión TALK
+            // es introduction -> Aldric.
+
+            if (
+                npcId !==
+                SERVER_QUESTS
+                    .introduction
+                    .target
+            ) {
+
+                return res
+                    .status(200)
+                    .json({
+                        success: true,
+                        quest: null
+                    });
+
+            }
+
+
+            await client.query(
+                "BEGIN"
+            );
+
+
+            let state =
+                await getOrCreateQuestState(
+                    client,
+                    req.user.userId,
+                    "introduction"
+                );
+
+
+            if (
+                !state.completed
+            ) {
+
+                const updateResult =
+                    await client.query(
+                        `
+                            UPDATE character_quests
+
+                            SET
+                                progress = 1,
+
+                                completed = TRUE,
+
+                                completed_at =
+                                    COALESCE(
+                                        completed_at,
+                                        NOW()
+                                    ),
+
+                                updated_at =
+                                    NOW()
+
+                            WHERE
+                                user_id = $1
+                                AND quest_id =
+                                    'introduction'
+
+                            RETURNING *
+                        `,
+                        [
+                            req.user.userId
+                        ]
+                    );
+
+
+                state =
+                    updateResult.rows[0];
+
+            }
+
+
+            await client.query(
+                "COMMIT"
+            );
+
+
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    quest: {
+
+                        questId:
+                            "introduction",
+
+                        progress:
+                            Number(
+                                state.progress
+                            ),
+
+                        amount:
+                            1,
+
+                        completed:
+                            Boolean(
+                                state.completed
+                            ),
+
+                        rewarded:
+                            Boolean(
+                                state.rewarded
+                            )
+
+                    }
+
+                });
+
+
+        } catch (error) {
+
+            try {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+            } catch (
+                rollbackError
+            ) {
+
+                console.error(
+                    "[NPC ROLLBACK ERROR]",
+                    rollbackError.message
+                );
+
+            }
+
+
+            console.error(
+                "[NPC TALK ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudo registrar la conversación."
+                });
+
+
+        } finally {
+
+            client.release();
+
+        }
+
+    }
+);
+
+
+// =========================================================
+// OBTENER MISIONES DEL JUGADOR
+// =========================================================
+
+app.get(
+    "/game/quests",
+    authenticateToken,
+    async (req, res) => {
+
+        try {
+
+            const result =
+                await pool.query(
+                    `
+                        SELECT
+                            quest_id,
+                            progress,
+                            completed,
+                            rewarded,
+                            completed_at,
+                            updated_at
+
+                        FROM character_quests
+
+                        WHERE user_id = $1
+
+                        ORDER BY id ASC
+                    `,
+                    [
+                        req.user.userId
+                    ]
+                );
+
+
+            return res
+                .status(200)
+                .json({
+
+                    success: true,
+
+                    quests:
+                        result.rows
+
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "[GET QUESTS ERROR]",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+                    message:
+                        "No se pudieron cargar las misiones."
+                });
+
+        }
+
+    }
+);
+
+
+// =========================================================
+// COBRAR RECOMPENSA DE MISIÓN
+// =========================================================
 
 app.post(
     "/game/quest-completed",
@@ -1461,6 +2123,7 @@ app.post(
         const client =
             await pool.connect();
 
+
         try {
 
             const {
@@ -1468,13 +2131,11 @@ app.post(
             } = req.body;
 
 
-            // ----------------------------------
-            // VALIDAR ID
-            // ----------------------------------
-
             if (
                 typeof questId !== "string" ||
-                questId.length === 0
+                !SERVER_QUESTS[
+                    questId
+                ]
             ) {
 
                 return res
@@ -1488,25 +2149,10 @@ app.post(
             }
 
 
-            // ----------------------------------
-            // COMPROBAR MISIÓN DEL SERVIDOR
-            // ----------------------------------
-
             const quest =
-                SERVER_QUESTS[questId];
-
-
-            if (!quest) {
-
-                return res
-                    .status(400)
-                    .json({
-                        success: false,
-                        message:
-                            "La misión no existe en el servidor."
-                    });
-
-            }
+                SERVER_QUESTS[
+                    questId
+                ];
 
 
             await client.query(
@@ -1514,11 +2160,77 @@ app.post(
             );
 
 
-            // ----------------------------------
-            // BLOQUEAR PERSONAJE
-            // ----------------------------------
+            const stateResult =
+                await client.query(
+                    `
+                        SELECT *
 
-            const result =
+                        FROM character_quests
+
+                        WHERE
+                            user_id = $1
+                            AND quest_id = $2
+
+                        FOR UPDATE
+                    `,
+                    [
+                        req.user.userId,
+                        questId
+                    ]
+                );
+
+
+            if (
+                stateResult.rows.length === 0 ||
+                stateResult.rows[0]
+                    .completed !== true
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(409)
+                    .json({
+                        success: false,
+                        message:
+                            "La misión todavía no está completada."
+                    });
+
+            }
+
+
+            const questState =
+                stateResult.rows[0];
+
+
+            if (
+                questState.rewarded ===
+                true
+            ) {
+
+                await client.query(
+                    "ROLLBACK"
+                );
+
+
+                return res
+                    .status(409)
+                    .json({
+                        success: false,
+                        message:
+                            "La recompensa de esta misión ya fue cobrada."
+                    });
+
+            }
+
+
+            // Bloquear personaje antes de
+            // modificar XP y oro.
+
+            const characterResult =
                 await client.query(
                     `
                         SELECT
@@ -1540,7 +2252,7 @@ app.post(
 
 
             if (
-                result.rows.length === 0
+                characterResult.rows.length === 0
             ) {
 
                 await client.query(
@@ -1560,12 +2272,8 @@ app.post(
 
 
             const character =
-                result.rows[0];
+                characterResult.rows[0];
 
-
-            // ----------------------------------
-            // RECOMPENSA
-            // ----------------------------------
 
             let newLevel =
                 Number(
@@ -1578,7 +2286,7 @@ app.post(
                     character.xp
                 ) +
                 Number(
-                    quest.xp || 0
+                    quest.xp
                 );
 
 
@@ -1587,16 +2295,13 @@ app.post(
                     character.gold
                 ) +
                 Number(
-                    quest.gold || 0
+                    quest.gold
                 );
 
 
-            let levelsGained = 0;
+            let levelsGained =
+                0;
 
-
-            // ----------------------------------
-            // CALCULAR LEVEL UP
-            // ----------------------------------
 
             let requiredXp =
                 getRequiredXpForLevel(
@@ -1605,7 +2310,8 @@ app.post(
 
 
             while (
-                newXp >= requiredXp
+                newXp >=
+                requiredXp
             ) {
 
                 newXp -=
@@ -1623,10 +2329,6 @@ app.post(
 
             }
 
-
-            // ----------------------------------
-            // ACTUALIZAR PERSONAJE
-            // ----------------------------------
 
             const updateResult =
                 await client.query(
@@ -1663,14 +2365,32 @@ app.post(
                 );
 
 
+            // Marcar recompensa como cobrada.
+            // Esto evita cobrarla otra vez.
+
+            await client.query(
+                `
+                    UPDATE character_quests
+
+                    SET
+                        rewarded = TRUE,
+                        updated_at = NOW()
+
+                    WHERE
+                        user_id = $1
+                        AND quest_id = $2
+                `,
+                [
+                    req.user.userId,
+                    questId
+                ]
+            );
+
+
             await client.query(
                 "COMMIT"
             );
 
-
-            // ----------------------------------
-            // RESPUESTA
-            // ----------------------------------
 
             return res
                 .status(200)
@@ -1680,17 +2400,19 @@ app.post(
 
                     questId,
 
+                    next:
+                        quest.next,
+
                     reward: {
 
                         xp:
-                            Number(
-                                quest.xp || 0
-                            ),
+                            quest.xp,
 
                         gold:
-                            Number(
-                                quest.gold || 0
-                            ),
+                            quest.gold,
+
+                        items:
+                            quest.items || {},
 
                         levelsGained
 
@@ -1715,7 +2437,7 @@ app.post(
             ) {
 
                 console.error(
-                    "[V4.2 QUEST ROLLBACK ERROR]",
+                    "[QUEST ROLLBACK ERROR]",
                     rollbackError.message
                 );
 
@@ -1723,7 +2445,7 @@ app.post(
 
 
             console.error(
-                "[V4.2 QUEST ERROR]",
+                "[QUEST ERROR]",
                 error.message
             );
 
@@ -1746,9 +2468,10 @@ app.post(
     }
 );
 
-// ==========================================
-// RUTA NO ENCONTRADA - 404
-// ==========================================
+
+// =========================================================
+// 404
+// =========================================================
 
 app.use(
     (req, res) => {
@@ -1765,9 +2488,9 @@ app.use(
 );
 
 
-// ==========================================
+// =========================================================
 // ERROR GENERAL
-// ==========================================
+// =========================================================
 
 app.use(
     (
@@ -1795,9 +2518,9 @@ app.use(
 );
 
 
-// ==========================================
+// =========================================================
 // INICIAR SERVIDOR
-// ==========================================
+// =========================================================
 
 async function startServer() {
 
@@ -1819,7 +2542,7 @@ async function startServer() {
                 );
 
                 console.log(
-                    "Versión: 4.0.0"
+                    "Versión: 4.2.0"
                 );
 
                 console.log(
