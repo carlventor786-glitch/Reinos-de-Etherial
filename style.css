@@ -832,3 +832,468 @@ footer button {
     }
 
 }
+/* ==================================================
+   REINOS DE ETHERIAL V4
+   LOGIN / REGISTRO
+================================================== */
+
+#authScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 100vh;
+    padding: 20px;
+
+    overflow-y: auto;
+
+    background:
+        radial-gradient(
+            circle at 50% 20%,
+            rgba(49, 92, 130, 0.28),
+            transparent 35%
+        ),
+        linear-gradient(
+            180deg,
+            #101a29 0%,
+            #080d16 55%,
+            #03060b 100%
+        );
+}
+
+#authScreen.hidden {
+    display: none;
+}
+
+
+/* Fondo decorativo */
+
+.authBackground {
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+        radial-gradient(
+            circle at 20% 80%,
+            rgba(24, 96, 71, 0.16),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 80% 70%,
+            rgba(92, 54, 120, 0.14),
+            transparent 30%
+        );
+
+    opacity: 0.9;
+}
+
+
+/* Contenedor principal */
+
+.authContainer {
+    position: relative;
+    z-index: 2;
+
+    width: 100%;
+    max-width: 430px;
+
+    padding: 26px;
+
+    border: 1px solid rgba(173, 203, 225, 0.18);
+    border-radius: 18px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(17, 28, 43, 0.97),
+            rgba(7, 13, 22, 0.98)
+        );
+
+    box-shadow:
+        0 25px 80px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+
+/* Logo */
+
+.authLogo {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.authSword {
+    font-size: 46px;
+    line-height: 1;
+
+    margin-bottom: 10px;
+
+    filter:
+        drop-shadow(
+            0 0 12px rgba(241, 196, 84, 0.35)
+        );
+}
+
+.authLogo h1 {
+    margin: 0;
+
+    font-size: 28px;
+    letter-spacing: 2px;
+
+    color: #f2d486;
+
+    text-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.authVersion {
+    display: inline-block;
+
+    margin-top: 8px;
+    padding: 4px 10px;
+
+    border: 1px solid rgba(242, 212, 134, 0.35);
+    border-radius: 20px;
+
+    color: #f2d486;
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.authLogo p {
+    margin: 10px 0 0;
+
+    color: #8294a9;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+}
+
+
+/* Panel */
+
+.authPanel {
+    padding: 22px;
+
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+
+    background:
+        rgba(3, 8, 14, 0.55);
+}
+
+.authPanel.hidden {
+    display: none;
+}
+
+.authPanel h2 {
+    margin: 0;
+
+    text-align: center;
+
+    color: #f4f7fb;
+
+    font-size: 20px;
+}
+
+.authSubtitle {
+    margin: 7px 0 22px;
+
+    text-align: center;
+
+    color: #8495a8;
+
+    font-size: 13px;
+}
+
+
+/* Labels */
+
+.authPanel label {
+    display: block;
+
+    margin:
+        14px 0
+        7px;
+
+    color: #b8c5d3;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+/* Inputs */
+
+.authPanel input {
+    box-sizing: border-box;
+
+    width: 100%;
+    height: 46px;
+
+    padding: 0 14px;
+
+    border: 1px solid #26384d;
+    border-radius: 8px;
+
+    outline: none;
+
+    background: #080f19;
+
+    color: #ffffff;
+
+    font-size: 15px;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.authPanel input::placeholder {
+    color: #536477;
+}
+
+.authPanel input:focus {
+    border-color: #d7b55b;
+
+    background: #0b1420;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(215, 181, 91, 0.10);
+}
+
+
+/* Botón principal */
+
+.authPrimaryButton {
+    width: 100%;
+    min-height: 48px;
+
+    margin-top: 22px;
+
+    border: 1px solid #e0c06b;
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    background:
+        linear-gradient(
+            180deg,
+            #c99f3c,
+            #8f691d
+        );
+
+    color: #0b0d10;
+
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: 0.7px;
+
+    box-shadow:
+        0 6px 20px
+        rgba(0, 0, 0, 0.35);
+
+    transition:
+        transform 0.15s ease,
+        filter 0.15s ease;
+}
+
+.authPrimaryButton:hover {
+    filter: brightness(1.12);
+}
+
+.authPrimaryButton:active {
+    transform: scale(0.98);
+}
+
+.authPrimaryButton:disabled {
+    cursor: wait;
+
+    opacity: 0.55;
+}
+
+
+/* Botón secundario */
+
+.authSecondaryButton {
+    width: 100%;
+    min-height: 43px;
+
+    border: 1px solid #30445b;
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    background: #111d2b;
+
+    color: #c9d5e2;
+
+    font-weight: 800;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.authSecondaryButton:hover {
+    background: #172638;
+    border-color: #49617b;
+}
+
+
+/* Separador */
+
+.authSeparator {
+    display: flex;
+    align-items: center;
+
+    margin: 22px 0;
+
+    color: #607287;
+
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.authSeparator::before,
+.authSeparator::after {
+    content: "";
+
+    flex: 1;
+
+    height: 1px;
+
+    background: #223247;
+}
+
+.authSeparator span {
+    padding: 0 12px;
+}
+
+
+/* Mensajes */
+
+.authMessage {
+    min-height: 20px;
+
+    margin-top: 12px;
+
+    text-align: center;
+
+    color: #9aabba;
+
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.authMessage.error {
+    color: #ff7777;
+}
+
+.authMessage.success {
+    color: #71e09a;
+}
+
+
+/* Estado servidor */
+
+.serverStatus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    margin-top: 18px;
+
+    color: #8192a5;
+
+    font-size: 12px;
+}
+
+.serverStatusDot {
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    background: #d5a83c;
+
+    box-shadow:
+        0 0 8px
+        rgba(213, 168, 60, 0.5);
+}
+
+.serverStatusDot.online {
+    background: #44d17a;
+
+    box-shadow:
+        0 0 10px
+        rgba(68, 209, 122, 0.65);
+}
+
+.serverStatusDot.offline {
+    background: #e45353;
+
+    box-shadow:
+        0 0 10px
+        rgba(228, 83, 83, 0.55);
+}
+
+
+/* ==================================================
+   MÓVIL
+================================================== */
+
+@media (max-width: 600px) {
+
+    #authScreen {
+        align-items: flex-start;
+
+        padding:
+            18px 12px
+            30px;
+    }
+
+    .authContainer {
+        max-width: 100%;
+
+        padding: 18px;
+
+        margin-top: 15px;
+
+        border-radius: 14px;
+    }
+
+    .authLogo {
+        margin-bottom: 18px;
+    }
+
+    .authSword {
+        font-size: 38px;
+    }
+
+    .authLogo h1 {
+        font-size: 22px;
+        letter-spacing: 1px;
+    }
+
+    .authPanel {
+        padding: 18px;
+    }
+
+    .authPanel input {
+        font-size: 16px;
+    }
+
+}
