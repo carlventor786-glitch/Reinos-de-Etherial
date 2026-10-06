@@ -1,6 +1,6 @@
 {
   "name": "reinos-de-etherial-server",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Backend oficial de Reinos de Etherial",
   "main": "src/server.js",
   "type": "module",
@@ -12,11 +12,12 @@
     "node": ">=20"
   },
   "dependencies": {
-  "bcryptjs": "^3.0.2",
-  "cors": "^2.8.5",
-  "dotenv": "^17.2.3",
-  "express": "^5.1.0",
-  "jsonwebtoken": "^9.0.2",
-  "pg": "^8.16.3"
-}
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
+    "ws": "^8.18.3"
+  }
 }
