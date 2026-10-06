@@ -2952,18 +2952,179 @@ function updateUI() {
 
 
 /* =========================================================
-   GUARDAR
+   GUARDAR V4
+========================================================= */
+
+let serverSaveInProgress = false;
+
+
+/* =========================================================
+   GUARDAR PERSONAJE EN POSTGRESQL
+========================================================= */
+
+async function saveCharacterToServer(
+    showMessage = false
+) {
+
+    // ------------------------------------------
+    // COMPROBAR SESIÓN
+    // ------------------------------------------
+
+    if (
+        !window.ETHERIAL_SESSION ||
+        !window.ETHERIAL_SESSION.character
+    ) {
+
+        return;
+
+    }
+
+
+    // ------------------------------------------
+    // EVITAR GUARDADOS SIMULTÁNEOS
+    // ------------------------------------------
+
+    if (serverSaveInProgress) {
+
+        return;
+
+    }
+
+
+    // ------------------------------------------
+    // COMPROBAR API
+    // ------------------------------------------
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.saveCharacter !== "function"
+    ) {
+
+        console.warn(
+            "[V4] EtherialAPI no disponible."
+        );
+
+        return;
+
+    }
+
+
+    serverSaveInProgress = true;
+
+
+    try {
+
+        // --------------------------------------
+        // SOLO DATOS PERMITIDOS POR EL SERVIDOR
+        // --------------------------------------
+
+        const characterState = {
+
+            hp:
+                Math.floor(
+                    player.hp
+                ),
+
+            mana:
+                Math.floor(
+                    player.mana
+                ),
+
+            x:
+                player.x,
+
+            y:
+                player.y,
+
+            zone:
+                player.zone
+
+        };
+
+
+        // --------------------------------------
+        // ENVIAR A RENDER / POSTGRESQL
+        // --------------------------------------
+
+        const result =
+            await EtherialAPI.saveCharacter(
+                characterState
+            );
+
+
+        // --------------------------------------
+        // GUARDADO CORRECTO
+        // --------------------------------------
+
+        if (
+            result &&
+            result.success === true
+        ) {
+
+            console.log(
+                "💾 Personaje guardado en PostgreSQL:",
+                result.character
+            );
+
+
+            if (showMessage) {
+
+                addLog(
+                    "☁ Progreso guardado en el servidor."
+                );
+
+            }
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "[V4 SERVER SAVE]",
+            error
+        );
+
+
+        if (showMessage) {
+
+            addLog(
+                "⚠ No se pudo guardar en el servidor."
+            );
+
+        }
+
+
+    } finally {
+
+        serverSaveInProgress =
+            false;
+
+    }
+
+}
+
+
+/* =========================================================
+   GUARDAR PARTIDA
 ========================================================= */
 
 function saveGame(
     showMessage = true
 ) {
 
+    // ------------------------------------------
+    // GUARDADO LOCAL V3
+    // ------------------------------------------
+
     const save = {
 
         player,
+
         inventory,
+
         equipment,
+
         questState
 
     };
@@ -2971,11 +3132,28 @@ function saveGame(
 
     try {
 
+        // --------------------------------------
+        // LOCALSTORAGE
+        // --------------------------------------
+
         localStorage.setItem(
             SAVE_KEY,
             JSON.stringify(save)
         );
 
+
+        // --------------------------------------
+        // POSTGRESQL V4
+        // --------------------------------------
+
+        saveCharacterToServer(
+            showMessage
+        );
+
+
+        // --------------------------------------
+        // MENSAJE LOCAL
+        // --------------------------------------
 
         if (showMessage) {
 
@@ -2985,9 +3163,14 @@ function saveGame(
 
         }
 
-    }
 
-    catch (error) {
+    } catch (error) {
+
+        console.error(
+            "[LOCAL SAVE ERROR]",
+            error
+        );
+
 
         addLog(
             "⚠ Error guardando la partida."
