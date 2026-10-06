@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V5.0.1
+   REINOS DE ETHERIAL V5.5
    GAME.JS
 ========================================================= */
 
@@ -1153,39 +1153,6 @@ async function useInventoryItem(itemId) {
         }
 
         try {
-            // V5.0.1:
-            // El daño de enemigos todavía ocurre localmente.
-            // Antes de consumir la poción sincronizamos HP/mana
-            // y esperamos al servidor para evitar curar sobre
-            // un HP antiguo guardado en PostgreSQL.
-            if (
-                typeof EtherialAPI.saveCharacter === "function"
-            ) {
-                const syncResult =
-                    await EtherialAPI.saveCharacter({
-                        hp: Math.max(
-                            0,
-                            Math.floor(player.hp)
-                        ),
-                        mana: Math.max(
-                            0,
-                            Math.floor(player.mana)
-                        ),
-                        x: player.x,
-                        y: player.y,
-                        zone: player.zone
-                    });
-
-                if (
-                    !syncResult ||
-                    syncResult.success !== true
-                ) {
-                    throw new Error(
-                        "No se pudo sincronizar la vida antes de usar la poción."
-                    );
-                }
-            }
-
             const result =
                 await EtherialAPI.useItem(itemId);
 
@@ -3443,6 +3410,30 @@ function drawWorld() {
 
 function drawVillage() {
 
+    // V5.5: plaza empedrada y caminos de Lumen.
+    const plazaX = screenX(250);
+    const plazaY = screenY(250);
+
+    ctx.fillStyle = "#8a806d";
+    ctx.fillRect(plazaX, plazaY, 560, 560);
+
+    ctx.strokeStyle = "#6d6658";
+    ctx.lineWidth = 1;
+
+    for (let gx = 250; gx <= 810; gx += 32) {
+        ctx.beginPath();
+        ctx.moveTo(screenX(gx), screenY(250));
+        ctx.lineTo(screenX(gx), screenY(810));
+        ctx.stroke();
+    }
+
+    for (let gy = 250; gy <= 810; gy += 32) {
+        ctx.beginPath();
+        ctx.moveTo(screenX(250), screenY(gy));
+        ctx.lineTo(screenX(810), screenY(gy));
+        ctx.stroke();
+    }
+
     const houses = [
 
         [330, 340],
@@ -3523,6 +3514,74 @@ function drawVillage() {
 }
 
 
+
+/* =========================================================
+   V5.5 - PIXEL MMORPG ASSETS
+========================================================= */
+
+const V55_ASSET_PATH = "assets/sprites/";
+
+const V55_IMAGES = {};
+
+[
+    "hero",
+    "guardian",
+    "merchant",
+    "healer",
+    "villager",
+    "slime",
+    "wolf",
+    "goblin",
+    "skeleton",
+    "enemy"
+].forEach(name => {
+    const image = new Image();
+    image.src = V55_ASSET_PATH + name + ".png";
+    V55_IMAGES[name] = image;
+});
+
+function drawPixelSprite(name, worldX, worldY, width, height) {
+    const image = V55_IMAGES[name];
+    if (!image || !image.complete || image.naturalWidth === 0) {
+        return false;
+    }
+
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+        image,
+        Math.round(screenX(worldX) - width / 2),
+        Math.round(screenY(worldY) - height / 2),
+        width,
+        height
+    );
+
+    return true;
+}
+
+function getEnemySpriteName(enemyType) {
+    const id = String(enemyType || "").toLowerCase();
+
+    if (id.includes("slime")) return "slime";
+    if (id.includes("wolf")) return "wolf";
+    if (id.includes("goblin")) return "goblin";
+    if (id.includes("skeleton")) return "skeleton";
+
+    return "enemy";
+}
+
+function getNpcSpriteName(npc) {
+    const id = String(npc?.id || "").toLowerCase();
+    const role = String(npc?.role || "").toLowerCase();
+
+    if (id.includes("mira") || role.includes("merc")) return "merchant";
+    if (id.includes("elena") || role.includes("cura")) return "healer";
+    if (role.includes("guard")) return "guardian";
+
+    return "villager";
+}
+
+
 /* =========================================================
    PERSONAJE
 ========================================================= */
@@ -3530,60 +3589,30 @@ function drawVillage() {
 function drawCharacter(
     worldX,
     worldY,
-    bodyColor
+    bodyColor,
+    spriteName = "hero"
 ) {
+    if (
+        drawPixelSprite(
+            spriteName,
+            worldX,
+            worldY - 4,
+            42,
+            52
+        )
+    ) {
+        return;
+    }
 
-    const x =
-        screenX(worldX);
+    // Fallback seguro si el PNG todavía no cargó.
+    const x = screenX(worldX);
+    const y = screenY(worldY);
 
-    const y =
-        screenY(worldY);
-
-
-    drawRect(
-        x - 11,
-        y - 15,
-        22,
-        28,
-        bodyColor
-    );
-
-
-    drawRect(
-        x - 9,
-        y - 25,
-        18,
-        12,
-        "#f1c27d"
-    );
-
-
-    drawRect(
-        x - 8,
-        y - 29,
-        16,
-        6,
-        "#3f2b1f"
-    );
-
-
-    drawRect(
-        x - 7,
-        y + 13,
-        5,
-        7,
-        "#111827"
-    );
-
-
-    drawRect(
-        x + 2,
-        y + 13,
-        5,
-        7,
-        "#111827"
-    );
-
+    drawRect(x - 11, y - 15, 22, 28, bodyColor);
+    drawRect(x - 9, y - 25, 18, 12, "#f1c27d");
+    drawRect(x - 8, y - 29, 16, 6, "#3f2b1f");
+    drawRect(x - 7, y + 13, 5, 7, "#111827");
+    drawRect(x + 2, y + 13, 5, 7, "#111827");
 }
 
 
@@ -3599,7 +3628,8 @@ function drawNPCs() {
             drawCharacter(
                 npc.x,
                 npc.y,
-                npc.color
+                npc.color,
+                getNpcSpriteName(npc)
             );
 
 
@@ -3668,31 +3698,43 @@ function drawEnemies() {
         }
 
 
-        drawRect(
-            x - 13,
-            y - 13,
-            26,
-            26,
-            type.color
-        );
+        const enemySprite =
+            getEnemySpriteName(enemy.type);
 
+        const spriteDrawn =
+            drawPixelSprite(
+                enemySprite,
+                enemy.x,
+                enemy.y - 3,
+                enemySprite === "wolf" ? 54 : 44,
+                48
+            );
 
-        drawRect(
-            x - 8,
-            y - 5,
-            4,
-            4,
-            "#111"
-        );
+        if (!spriteDrawn) {
+            drawRect(
+                x - 13,
+                y - 13,
+                26,
+                26,
+                type.color
+            );
 
+            drawRect(
+                x - 8,
+                y - 5,
+                4,
+                4,
+                "#111"
+            );
 
-        drawRect(
-            x + 4,
-            y - 5,
-            4,
-            4,
-            "#111"
-        );
+            drawRect(
+                x + 4,
+                y - 5,
+                4,
+                4,
+                "#111"
+            );
+        }
 
 
         drawRect(
@@ -3763,7 +3805,8 @@ function render() {
             drawCharacter(
                 Number(remote.x),
                 Number(remote.y),
-                "#a855f7"
+                "#a855f7",
+                "hero"
             );
 
             drawText(
@@ -3782,7 +3825,8 @@ function render() {
     drawCharacter(
         player.x,
         player.y,
-        "#3b82f6"
+        "#3b82f6",
+        "hero"
     );
 
 
