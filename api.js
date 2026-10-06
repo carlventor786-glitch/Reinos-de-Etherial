@@ -405,7 +405,30 @@ const EtherialAPI = (() => {
 
     }
 
+/* =====================================================
+   V4.2 - RECOMPENSA POR ENEMIGO
+===================================================== */
 
+async function enemyKilled(
+    enemyType
+) {
+
+    return await request(
+        "/game/enemy-killed",
+        {
+
+            method: "POST",
+
+            body:
+                JSON.stringify({
+                    enemyType
+                })
+
+        }
+    );
+
+}
+   
     /* =====================================================
        INVENTARIO
     ===================================================== */
