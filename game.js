@@ -852,11 +852,15 @@ function attack() {
    MATAR ENEMIGO
 ========================================================= */
 
-function killEnemy(enemy) {
+async function killEnemy(enemy) {
 
     const type =
         ENEMY_TYPES[enemy.type];
 
+
+    // ==========================================
+    // MARCAR ENEMIGO COMO DERROTADO LOCALMENTE
+    // ==========================================
 
     enemy.alive = false;
 
@@ -865,43 +869,253 @@ function killEnemy(enemy) {
     enemy.respawnTimer =
         randomInt(7, 12);
 
+    currentTarget = null;
 
-    const gold =
-        randomInt(
-            type.goldMin,
-            type.goldMax
+
+    // ==========================================
+    // COMPROBAR CONEXIÓN CON API
+    // ==========================================
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.enemyKilled !== "function"
+    ) {
+
+        console.error(
+            "[V4.2] enemyKilled no está disponible."
+        );
+
+        addLog(
+            "⚠ No se pudo registrar la recompensa."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        // ======================================
+        // EL SERVIDOR PROCESA LA RECOMPENSA
+        // ======================================
+
+        const result =
+            await EtherialAPI.enemyKilled(
+                enemy.type
+            );
+
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.character
+        ) {
+
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+        }
+
+
+        const reward =
+            result.reward || {};
+
+
+        const previousLevel =
+            player.level;
+
+
+        // ======================================
+        // APLICAR DATOS OFICIALES DEL SERVIDOR
+        // ======================================
+
+        player.level =
+            Math.max(
+                1,
+                Number(
+                    result.character.level
+                ) || 1
+            );
+
+
+        player.xp =
+            Math.max(
+                0,
+                Number(
+                    result.character.xp
+                ) || 0
+            );
+
+
+        player.gold =
+            Math.max(
+                0,
+                Number(
+                    result.character.gold
+                ) || 0
+            );
+
+
+        player.nextXp =
+            calculateNextXpForLevel(
+                player.level
+            );
+
+
+        // ======================================
+        // RECALCULAR STATS SEGÚN NIVEL
+        // ======================================
+
+        player.maxHp =
+            100 +
+            (
+                (player.level - 1) *
+                LEVEL_CONFIG.hpPerLevel
+            );
+
+
+        player.maxMana =
+            50 +
+            (
+                (player.level - 1) *
+                LEVEL_CONFIG.manaPerLevel
+            );
+
+
+        player.baseAttack =
+            12 +
+            (
+                (player.level - 1) *
+                LEVEL_CONFIG.attackPerLevel
+            );
+
+
+        player.baseDefense =
+            3 +
+            (
+                (player.level - 1) *
+                LEVEL_CONFIG.defensePerLevel
+            );
+
+
+        // ======================================
+        // CONTADOR LOCAL DE MUERTES
+        // ======================================
+
+        player.kills++;
+
+
+        // ======================================
+        // MENSAJE DE RECOMPENSA
+        // ======================================
+
+        addLog(
+            "☠ " +
+            type.name +
+            " derrotado. +" +
+            (reward.xp || 0) +
+            " EXP · +" +
+            (reward.gold || 0) +
+            " oro."
         );
 
 
-    player.gold += gold;
+        // ======================================
+        // LEVEL UP
+        // ======================================
 
-    player.xp += type.xp;
+        if (
+            player.level >
+            previousLevel
+        ) {
 
-    player.kills++;
+            player.hp =
+                player.maxHp;
 
-
-    addLog(
-        "☠ " +
-        type.name +
-        " derrotado. +" +
-        type.xp +
-        " EXP · +" +
-        gold +
-        " oro."
-    );
+            player.mana =
+                player.maxMana;
 
 
-    processLoot(type);
+            showLevelUp();
 
-    processQuestKill(
-        enemy.type
-    );
 
-    checkLevelUp();
+            addLog(
+                "✨ Alcanzaste nivel " +
+                player.level +
+                "!"
+            );
 
-    currentTarget = null;
+        }
 
-    saveGame(false);
+
+        // ======================================
+        // LOOT LOCAL
+        // ======================================
+
+        processLoot(type);
+
+
+        // ======================================
+        // MISIONES
+        // ======================================
+
+        processQuestKill(
+            enemy.type
+        );
+
+
+        // ======================================
+        // ACTUALIZAR INTERFAZ
+        // ======================================
+
+        updateUI();
+
+
+        console.log(
+            "⚔ Recompensa V4.2 confirmada:",
+            {
+                enemy:
+                    enemy.type,
+
+                xp:
+                    reward.xp,
+
+                gold:
+                    reward.gold,
+
+                level:
+                    player.level,
+
+                totalXp:
+                    player.xp,
+
+                totalGold:
+                    player.gold
+            }
+        );
+
+
+        // ======================================
+        // GUARDADO GENERAL
+        // ======================================
+
+        saveGame(false);
+
+
+    } catch (error) {
+
+        console.error(
+            "[V4.2 ENEMY REWARD ERROR]",
+            error
+        );
+
+
+        addLog(
+            "⚠ El servidor no pudo entregar la recompensa."
+        );
+
+    }
+
 }
 
 
