@@ -1,213 +1,129 @@
-/* =========================================================
-   REINOS DE ETHERIAL V4
-   BACKEND PRINCIPAL
-========================================================= */
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-
-
-/* =========================================================
-   VARIABLES DE ENTORNO
-========================================================= */
+import pg from "pg";
 
 dotenv.config();
 
-
-/* =========================================================
-   APP
-========================================================= */
+const { Pool } = pg;
 
 const app = express();
-
-
-const PORT =
-    process.env.PORT || 3000;
-
-
-/* =========================================================
-   ORIGEN DEL JUEGO
-========================================================= */
+const PORT = process.env.PORT || 3000;
 
 const GAME_ORIGIN =
     process.env.GAME_ORIGIN ||
     "https://carlventor786-glitch.github.io";
 
+// ================================
+// BASE DE DATOS POSTGRESQL / NEON
+// ================================
 
-/* =========================================================
-   MIDDLEWARE
-========================================================= */
-
-app.use(
-    cors({
-        origin: GAME_ORIGIN,
-        methods: [
-            "GET",
-            "POST",
-            "PUT",
-            "DELETE"
-        ],
-        allowedHeaders: [
-            "Content-Type",
-            "Authorization"
-        ]
-    })
-);
-
-
-app.use(
-    express.json({
-        limit: "100kb"
-    })
-);
-
-
-/* =========================================================
-   INFORMACIÓN BÁSICA
-========================================================= */
-
-app.get(
-    "/",
-    (req, res) => {
-
-        res.json({
-
-            game:
-                "Reinos de Etherial",
-
-            server:
-                "Etherial Backend",
-
-            version:
-                "4.0.0",
-
-            status:
-                "online"
-
-        });
-
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
     }
-);
+});
 
+// ================================
+// MIDDLEWARE
+// ================================
 
-/* =========================================================
-   HEALTH CHECK
+app.use(cors({
+    origin: GAME_ORIGIN,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-   api.js utilizará esta ruta para comprobar
-   si nuestro servidor está disponible.
-========================================================= */
+app.use(express.json({ limit: "100kb" }));
 
-app.get(
-    "/health",
-    (req, res) => {
+// ================================
+// RUTA PRINCIPAL
+// ================================
+
+app.get("/", (req, res) => {
+    res.json({
+        game: "Reinos de Etherial",
+        server: "Etherial Backend",
+        version: "4.0.0",
+        status: "online"
+    });
+});
+
+// ================================
+// HEALTH CHECK + DATABASE
+// ================================
+
+app.get("/health", async (req, res) => {
+    try {
+        const result = await pool.query(
+            "SELECT NOW() AS database_time"
+        );
 
         res.status(200).json({
-
             success: true,
-
-            game:
-                "Reinos de Etherial",
-
-            version:
-                "4.0.0",
-
-            status:
-                "online",
-
-            timestamp:
-                new Date()
-                    .toISOString()
-
+            game: "Reinos de Etherial",
+            version: "4.0.0",
+            server: "online",
+            database: "connected",
+            databaseTime: result.rows[0].database_time
         });
 
-    }
-);
-
-
-/* =========================================================
-   404
-========================================================= */
-
-app.use(
-    (req, res) => {
-
-        res.status(404).json({
-
-            success: false,
-
-            message:
-                "Ruta no encontrada."
-
-        });
-
-    }
-);
-
-
-/* =========================================================
-   MANEJO DE ERRORES
-========================================================= */
-
-app.use(
-    (error, req, res, next) => {
+    } catch (error) {
 
         console.error(
-            "[ETHERIAL ERROR]",
-            error
+            "[DATABASE ERROR]",
+            error.message
         );
-
 
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Error interno del servidor."
-
+            game: "Reinos de Etherial",
+            server: "online",
+            database: "disconnected"
         });
-
     }
-);
+});
 
+// ================================
+// 404
+// ================================
 
-/* =========================================================
-   INICIAR SERVIDOR
-========================================================= */
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Ruta no encontrada."
+    });
+});
 
-app.listen(
-    PORT,
-    () => {
+// ================================
+// ERROR GENERAL
+// ================================
 
-        console.log(
-            "================================="
-        );
+app.use((error, req, res, next) => {
+    console.error(
+        "[ETHERIAL ERROR]",
+        error
+    );
 
-        console.log(
-            "⚔ REINOS DE ETHERIAL SERVER"
-        );
+    res.status(500).json({
+        success: false,
+        message: "Error interno del servidor."
+    });
+});
 
-        console.log(
-            "Versión: 4.0.0"
-        );
+// ================================
+// INICIAR SERVIDOR
+// ================================
 
-        console.log(
-            "Puerto:",
-            PORT
-        );
+app.listen(PORT, () => {
 
-        console.log(
-            "Frontend permitido:",
-            GAME_ORIGIN
-        );
+    console.log("=================================");
+    console.log("⚔ REINOS DE ETHERIAL SERVER");
+    console.log("Versión: 4.0.0");
+    console.log("Puerto:", PORT);
+    console.log("Frontend permitido:", GAME_ORIGIN);
+    console.log("Estado: ONLINE");
+    console.log("=================================");
 
-        console.log(
-            "Estado: ONLINE"
-        );
-
-        console.log(
-            "================================="
-        );
-
-    }
-);
+});
