@@ -1,5 +1,5 @@
 /* =========================================================
-   REINOS DE ETHERIAL V4.3.1
+   REINOS DE ETHERIAL V4.4
    GAME.JS
 ========================================================= */
 
@@ -2107,7 +2107,7 @@ function closeDialog() {
    TIENDA
 ========================================================= */
 
-function openShop() {
+async function openShop() {
 
     const container =
         document.getElementById(
@@ -2115,16 +2115,155 @@ function openShop() {
         );
 
 
+    const goldElement =
+        document.getElementById(
+            "shopGold"
+        );
+
+
+    const shopWindow =
+        document.getElementById(
+            "shopWindow"
+        );
+
+
+    if (
+        !container ||
+        !goldElement ||
+        !shopWindow
+    ) {
+
+        addLog(
+            "⚠ No se pudo abrir la tienda."
+        );
+
+        return;
+    }
+
+
+    container.innerHTML =
+        '<div class="shopItem">' +
+        "⏳ Cargando tienda..." +
+        "</div>";
+
+
+    goldElement.textContent =
+        player.gold;
+
+
+    shopWindow.classList.remove(
+        "hidden"
+    );
+
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.getShop !== "function"
+    ) {
+
+        container.innerHTML =
+            '<div class="shopItem">' +
+            "⚠ Tienda del servidor no disponible." +
+            "</div>";
+
+        return;
+    }
+
+
+    try {
+
+        const result =
+            await EtherialAPI.getShop();
+
+
+        if (
+            !result ||
+            result.success !== true ||
+            !Array.isArray(result.items)
+        ) {
+
+            throw new Error(
+                "Respuesta inválida de la tienda."
+            );
+
+        }
+
+
+        renderServerShop(
+            result.items
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "[V4.4 SHOP LOAD]",
+            error
+        );
+
+
+        container.innerHTML =
+            '<div class="shopItem">' +
+            "⚠ No se pudo cargar la tienda." +
+            "</div>";
+
+
+        addLog(
+            "⚠ No se pudo cargar la tienda del servidor."
+        );
+
+    }
+
+}
+
+
+function renderServerShop(
+    serverItems
+) {
+
+    const container =
+        document.getElementById(
+            "shopItems"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
     container.innerHTML = "";
 
 
-    SHOP_ITEMS.forEach(
+    serverItems.forEach(
         shopEntry => {
 
+            const itemId =
+                shopEntry.itemId;
+
+
+            const price =
+                Math.max(
+                    0,
+                    Math.floor(
+                        Number(
+                            shopEntry.price
+                        ) || 0
+                    )
+                );
+
+
             const item =
-                ITEMS[
-                    shopEntry.item
-                ];
+                ITEMS[itemId];
+
+
+            if (
+                !item ||
+                price <= 0
+            ) {
+
+                return;
+            }
 
 
             const element =
@@ -2156,7 +2295,7 @@ function openShop() {
                 "</div>" +
 
                 '<div class="shopPrice">' +
-                shopEntry.price +
+                price +
                 " oro</div>";
 
 
@@ -2171,17 +2310,35 @@ function openShop() {
 
 
             button.textContent =
-                "Comprar";
+                player.gold >= price
+                    ? "Comprar"
+                    : "Falta oro";
 
 
-            button.onclick = () => {
+            button.disabled =
+                player.gold < price;
 
-                buyItem(
-                    shopEntry.item,
-                    shopEntry.price
-                );
 
-            };
+            button.onclick =
+                async () => {
+
+                    button.disabled =
+                        true;
+
+                    button.textContent =
+                        "Comprando...";
+
+
+                    await buyItem(
+                        itemId
+                    );
+
+
+                    // Volvemos a consultar la tienda para
+                    // refrescar botones según el oro restante.
+                    await openShop();
+
+                };
 
 
             element.appendChild(
@@ -2202,49 +2359,192 @@ function openShop() {
     );
 
 
-    document
-        .getElementById(
+    if (
+        container.children.length === 0
+    ) {
+
+        container.innerHTML =
+            '<div class="shopItem">' +
+            "No hay objetos disponibles." +
+            "</div>";
+
+    }
+
+
+    const goldElement =
+        document.getElementById(
             "shopGold"
-        )
-        .textContent =
-        player.gold;
-
-
-    document
-        .getElementById(
-            "shopWindow"
-        )
-        .classList.remove(
-            "hidden"
         );
+
+
+    if (goldElement) {
+
+        goldElement.textContent =
+            player.gold;
+
+    }
 
 }
 
 
 function closeShop() {
 
-    document
-        .getElementById(
+    const shopWindow =
+        document.getElementById(
             "shopWindow"
-        )
-        .classList.add(
+        );
+
+
+    if (shopWindow) {
+
+        shopWindow.classList.add(
             "hidden"
         );
+
+    }
 
 }
 
 
-function buyItem(
-    itemId,
-    price
+async function buyItem(
+    itemId
 ) {
-    addLog(
-        "🏪 Tienda en migración a PostgreSQL."
-    );
 
-    addLog(
-        "🔒 Las compras volverán con el endpoint seguro del servidor."
-    );
+    const item =
+        ITEMS[itemId];
+
+
+    if (!item) {
+
+        addLog(
+            "⚠ Objeto de tienda inválido."
+        );
+
+        return false;
+    }
+
+
+    if (
+        typeof EtherialAPI === "undefined" ||
+        typeof EtherialAPI.buyItem !== "function"
+    ) {
+
+        addLog(
+            "⚠ Compra del servidor no disponible."
+        );
+
+        return false;
+    }
+
+
+    try {
+
+        const result =
+            await EtherialAPI.buyItem(
+                itemId
+            );
+
+
+        if (
+            !result ||
+            result.success !== true ||
+            !result.character ||
+            !Array.isArray(
+                result.inventory
+            )
+        ) {
+
+            throw new Error(
+                "Respuesta inválida del servidor."
+            );
+
+        }
+
+
+        // El servidor es la única fuente oficial
+        // del oro después de comprar.
+        applyServerCharacter(
+            result.character
+        );
+
+
+        // El objeto ya fue agregado en PostgreSQL.
+        applyServerInventory(
+            result.inventory
+        );
+
+
+        if (result.equipment) {
+
+            applyServerEquipment(
+                result.equipment
+            );
+
+        }
+
+
+        const purchase =
+            result.purchase || {};
+
+
+        addLog(
+            "🏪 Compraste " +
+            item.name +
+            " por " +
+            (
+                Number(
+                    purchase.price
+                ) || 0
+            ) +
+            " oro."
+        );
+
+
+        const goldElement =
+            document.getElementById(
+                "shopGold"
+            );
+
+
+        if (goldElement) {
+
+            goldElement.textContent =
+                player.gold;
+
+        }
+
+
+        updateUI();
+
+        saveGame(false);
+
+
+        return true;
+
+
+    } catch (error) {
+
+        console.error(
+            "[V4.4 SHOP BUY]",
+            error
+        );
+
+
+        addLog(
+            "⚠ No se pudo comprar " +
+            item.name +
+            ": " +
+            (
+                error?.message ||
+                "error del servidor"
+            )
+        );
+
+
+        return false;
+
+    }
+
 }
 
 
